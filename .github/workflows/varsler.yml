@@ -1,0 +1,43 @@
+name: Vinmonopolet Varsler
+
+on:
+  schedule:
+    # Kjører hvert 5. minutt mellom 08:00–21:00 norsk tid (06:00–19:00 UTC)
+    # GitHub Actions cron bruker UTC
+    - cron: "*/5 6-19 * * *"
+
+  # Gjør det mulig å kjøre manuelt fra GitHub-grensesnittet
+  workflow_dispatch:
+
+jobs:
+  sjekk-produkter:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # Trengs for å committe state.json
+
+    steps:
+      - name: Hent kode
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Sett opp Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sjekk produkter og send varsler
+        env:
+          VINMONOPOLET_API_KEY: ${{ secrets.VINMONOPOLET_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python check_products.py
+
+      - name: Lagre tilstand (state.json) tilbake til repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/state.json
+          # Commit kun hvis filen har endret seg
+          git diff --staged --quiet || git commit -m "chore: oppdater tilstand [skip ci]"
+          git push
