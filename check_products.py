@@ -2,17 +2,37 @@
 import json
 import os
 import urllib.request
+import urllib.parse
 from datetime import datetime
  
 VINMONOPOLET_API_KEY = os.environ.get("VINMONOPOLET_API_KEY", "")
 NTFY_TOPIC           = os.environ.get("NTFY_TOPIC", "")
 NTFY_URL             = "https://ntfy.sh"
- 
-WATCH_LIST = [
-    {"id": "11501901", "name": "Adrien Renoir Le Terroir Verzy Grand Cru Extra Brut"},
-]
+SUPABASE_URL         = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY         = os.environ.get("SUPABASE_KEY", "")
  
 STATE_FILE = "data/state.json"
+ 
+# ─── Supabase ─────────────────────────────────────────────────────────────────
+ 
+def supabase_get(table):
+    """Henter alle rader fra en Supabase-tabell."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return []
+    url = f"{SUPABASE_URL}/rest/v1/{table}?select=*"
+    req = urllib.request.Request(url, headers={
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Accept": "application/json",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read())
+    except Exception as e:
+        print(f"    ⚠️  Feil ved henting fra Supabase ({table}): {e}")
+    return []
+ 
+# ─── Vinmonopolet availability (sanntid) ──────────────────────────────────────
  
 def fetch_availability(product_id):
     url = f"https://www.vinmonopolet.no/vmpws/v3/vmp/products/{product_id}/availability"
@@ -24,35 +44,57 @@ def fetch_availability(product_id):
         with urllib.request.urlopen(req, timeout=15) as resp:
             return json.loads(resp.read())
     except Exception as e:
-        print(f"    ⚠️  Feil ved henting av {product_id}: {e}")
+        print(f"    ⚠️  Feil ved henting av tilgjengelighet for {product_id}: {e}")
     return None
  
-def fetch_new_products():
+# ─── Vinmonopolet produktsøk (offisielt API) ──────────────────────────────────
+ 
+def search_products(producer_name, category=None):
+    """Søker etter produkter fra en produsent, med valgfritt kategorifilter."""
     if not VINMONOPOLET_API_KEY:
         return []
-    url = "https://apis.vinmonopolet.no/products/v0/details-normal?maxResults=100&start=0"
+    params = urllib.parse.urlencode({
+        "productShortNameContains": producer_name,
+        "maxResults": 50,
+        "start": 0,
+    })
+    url = f"https://apis.vinmonopolet.no/products/v0/details-normal?{params}"
     req = urllib.request.Request(url, headers={
         "Ocp-Apim-Subscription-Key": VINMONOPOLET_API_KEY,
         "Accept": "application/json",
     })
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            return json.loads(resp.read())
+            products = json.loads(resp.read())
     except Exception as e:
-        print(f"    ⚠️  Feil ved henting av nye produkter: {e}")
-    return []
+        print(f"    ⚠️  Feil ved søk etter {producer_name}: {e}")
+        return []
+ 
+    # Filtrer på kategori hvis oppgitt
+    if category:
+        products = [
+            p for p in products
+            if category.lower() in p.get("basic", {}).get("mainCategory", {}).get("name", "").lower()
+            or category.lower() in p.get("basic", {}).get("mainSubCategory", {}).get("name", "").lower()
+        ]
+ 
+    return products
+ 
+# ─── Tilstandshåndtering ──────────────────────────────────────────────────────
  
 def load_state():
     try:
         with open(STATE_FILE) as f:
             return json.load(f)
     except:
-        return {"seen_ids": [], "watch_status": {}}
+        return {"watch_status": {}, "producer_products": {}}
  
 def save_state(state):
     os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
+ 
+# ─── Varsling ─────────────────────────────────────────────────────────────────
  
 def send_notification(title, message, priority="high", tags="wine"):
     if not NTFY_TOPIC:
@@ -70,58 +112,46 @@ def send_notification(title, message, priority="high", tags="wine"):
     except Exception as e:
         print(f"    ⚠️  Varsel feilet: {e}")
  
-def check_watch_list(state):
-    if not WATCH_LIST:
-        print("    ℹ️  Ingen produkter i WATCH_LIST ennå.")
+# ─── Sjekk enkeltprodukter ────────────────────────────────────────────────────
+ 
+def check_watch_products(state):
+    products = supabase_get("watch_products")
+    if not products:
+        print("    ℹ️  Ingen produkter i watch_products-tabellen.")
         return state
  
-    for item in WATCH_LIST:
-        pid   = str(item["id"])
+    for item in products:
+        pid   = str(item.get("product_id", ""))
         pname = item.get("name", f"Produkt {pid}")
+        if not pid:
+            continue
         print(f"    🔍  Sjekker: {pname}")
  
         avail = fetch_availability(pid)
         if not avail:
             continue
  
-        stores   = avail.get("storesAvailability", {})
-        delivery = avail.get("deliveryAvailability", {})
+        in_store    = avail.get("storesAvailability", {}).get("availableForPurchase", False)
+        can_deliver = avail.get("deliveryAvailability", {}).get("availableForPurchase", False)
+        prev        = state["watch_status"].get(pid, {"in_store": False, "delivery": False})
  
-        in_store    = stores.get("availableForPurchase", False)
-        can_deliver = delivery.get("availableForPurchase", False)
- 
-        prev       = state["watch_status"].get(pid, {"in_store": False, "delivery": False})
-        prev_store = prev.get("in_store", False)
-        prev_deliv = prev.get("delivery", False)
- 
-        # Varsel hvis vinen nå er tilgjengelig i butikk (og ikke var det sist)
-        if in_store and not prev_store:
+        if in_store and not prev.get("in_store"):
             send_notification(
                 title=f"🍷 {pname} er i butikk!",
-                message=(
-                    f"{pname} er nå tilgjengelig i butikk.\n\n"
-                    f"Sjekk hvilke butikker som har den:\n"
-                    f"https://www.vinmonopolet.no/p/{pid}"
-                ),
-                priority="urgent",
-                tags="wine,rotating_light"
+                message=f"{pname} er nå tilgjengelig i butikk.\n\nSjekk butikker:\nhttps://www.vinmonopolet.no/p/{pid}",
+                priority="urgent", tags="wine,rotating_light"
             )
-        elif not in_store and prev_store:
+        elif not in_store and prev.get("in_store"):
             print(f"    📭  {pname}: ikke lenger i butikk.")
  
-        # Varsel hvis vinen nå kan bestilles på nett (og ikke kunne det sist)
-        if can_deliver and not prev_deliv:
+        if can_deliver and not prev.get("delivery"):
             send_notification(
                 title=f"📦 {pname} kan bestilles!",
-                message=(
-                    f"{pname} er nå tilgjengelig for nettbestilling.\n\n"
-                    f"Bestill her: https://www.vinmonopolet.no/p/{pid}"
-                ),
-                priority="high",
-                tags="wine,package"
+                message=f"{pname} er tilgjengelig for nettbestilling.\n\nhttps://www.vinmonopolet.no/p/{pid}",
+                priority="high", tags="wine,package"
             )
-        elif not can_deliver and prev_deliv:
-            print(f"    📭  {pname}: kan ikke lenger bestilles på nett.")
+        elif not can_deliver and prev.get("delivery"):
+            print(f"    📭  {pname}: kan ikke lenger bestilles.")
  
         if not in_store and not can_deliver:
             print(f"    📭  {pname}: ikke tilgjengelig.")
@@ -134,42 +164,83 @@ def check_watch_list(state):
  
     return state
  
-def check_new_arrivals(state):
-    if not VINMONOPOLET_API_KEY:
-        print("    ℹ️  Ingen API-nøkkel – hopper over nye produkter.")
+# ─── Sjekk produsenter ────────────────────────────────────────────────────────
+ 
+def check_watch_producers(state):
+    producers = supabase_get("watch_producers")
+    if not producers:
+        print("    ℹ️  Ingen produsenter i watch_producers-tabellen.")
         return state
  
-    products = fetch_new_products()
-    seen_ids = set(state.get("seen_ids", []))
+    for item in producers:
+        producer = item.get("producer_name", "").strip()
+        category = item.get("category", "") or ""
+        if not producer:
+            continue
  
-    for p in products:
-        pid = str(p.get("basic", {}).get("productId", ""))
-        if pid and pid not in seen_ids:
-            name  = p.get("basic", {}).get("productLongName", "Ukjent")
-            price = p.get("basic", {}).get("price", {}).get("value", "?")
-            send_notification(
-                title=f"🆕 Nytt: {name}",
-                message=f"{name}\nPris: {price} kr\nhttps://www.vinmonopolet.no/p/{pid}",
-                priority="default",
-                tags="wine,new"
-            )
-            seen_ids.add(pid)
+        label = f"{producer}" + (f" ({category})" if category else "")
+        print(f"    🔍  Sjekker produsent: {label}")
  
-    state["seen_ids"] = list(seen_ids)[-2000:]
+        products = search_products(producer, category if category else None)
+        if not products:
+            print(f"    ℹ️  Ingen produkter funnet for {label}.")
+            continue
+ 
+        # Hent tidligere kjente produkt-IDer for denne produsenten
+        prev_ids = set(state.get("producer_products", {}).get(producer, []))
+        current_ids = set()
+ 
+        for p in products:
+            pid  = str(p.get("basic", {}).get("productId", ""))
+            name = p.get("basic", {}).get("productLongName", "Ukjent")
+            if not pid:
+                continue
+            current_ids.add(pid)
+ 
+            # Nytt produkt vi ikke har sett før
+            if pid not in prev_ids:
+                print(f"    🆕  Nytt produkt fra {producer}: {name}")
+ 
+                # Sjekk tilgjengelighet
+                avail       = fetch_availability(pid)
+                in_store    = avail.get("storesAvailability", {}).get("availableForPurchase", False) if avail else False
+                can_deliver = avail.get("deliveryAvailability", {}).get("availableForPurchase", False) if avail else False
+ 
+                status = "tilgjengelig i butikk" if in_store else ("kan bestilles" if can_deliver else "ikke tilgjengelig ennå")
+                send_notification(
+                    title=f"🆕 Nytt fra {producer}: {name}",
+                    message=(
+                        f"{name} er nå i sortimentet.\n"
+                        f"Status: {status}\n\n"
+                        f"https://www.vinmonopolet.no/p/{pid}"
+                    ),
+                    priority="high", tags="wine,new"
+                )
+ 
+        # Oppdater kjente produkter for denne produsenten
+        if "producer_products" not in state:
+            state["producer_products"] = {}
+        state["producer_products"][producer] = list(current_ids)
+ 
     return state
+ 
+# ─── Main ─────────────────────────────────────────────────────────────────────
  
 def main():
     print(f"\n{'='*50}")
     print(f"  Vinmonopolet varsler – {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'='*50}\n")
  
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print("⚠️  SUPABASE_URL eller SUPABASE_KEY mangler i miljøvariablene.")
+ 
     state = load_state()
  
-    print("📋  Sjekker ønskeliste...")
-    state = check_watch_list(state)
+    print("📋  Sjekker enkeltprodukter...")
+    state = check_watch_products(state)
  
-    print("\n📦  Sjekker nye produkter...")
-    state = check_new_arrivals(state)
+    print("\n🏭  Sjekker produsenter...")
+    state = check_watch_producers(state)
  
     save_state(state)
     print("\n✅  Ferdig!\n")
