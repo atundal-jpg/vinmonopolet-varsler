@@ -1,0 +1,26 @@
+name: Importer Katalog
+
+on:
+  schedule:
+    # Kjører daglig kl 06:00 norsk tid (04:00 UTC) – etter at Vinmonopolet oppdaterer kl 05:45
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  importer-katalog:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Hent kode
+        uses: actions/checkout@v4
+
+      - name: Sett opp Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Importer katalog til Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python import_catalog.py
