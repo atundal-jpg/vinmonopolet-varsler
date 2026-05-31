@@ -529,7 +529,7 @@ async function loadProducts() {
           <div class="list-item-name">${r.name}</div>
           <div class="list-item-sub">ID: ${r.product_id}</div>
         </div>
-        <button class="delete-btn" onclick="deleteProduct(${r.product.id})">×</button>
+        <button class="delete-btn" onclick="deleteProduct(${r.product_id})">×</button>
       </div>
     `).join('');
   } catch (e) {
