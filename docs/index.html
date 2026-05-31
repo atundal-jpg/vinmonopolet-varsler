@@ -567,7 +567,7 @@ async function addProducer() {
 
 async function deleteProducer(id) {
   try {
-    await sbFetch(`watch_producers?id=eq.${id}`, { method: 'DELETE' });
+    await sbFetch(`watch_producers?producer_name=eq.${id}`, { method: 'DELETE' });
     toast('Slettet', 'success');
     loadProducers();
   } catch (e) {
@@ -579,7 +579,7 @@ async function loadProducers() {
   const el = document.getElementById('producers-list');
   el.innerHTML = '<div class="empty-state"><span class="icon">⏳</span>Laster...</div>';
   try {
-    const rows = await sbFetch('watch_producers?select=*&order=id.desc');
+    const rows = await sbFetch('watch_producers?select=*&order=producer_name.asc');
     if (!rows || rows.length === 0) {
       el.innerHTML = '<div class="empty-state"><span class="icon">🏭</span>Ingen produsenter ennå</div>';
       return;
@@ -590,7 +590,7 @@ async function loadProducers() {
           <div class="list-item-name">${r.producer_name}</div>
           <div class="list-item-sub">${r.category || 'Alle kategorier'}</div>
         </div>
-        <button class="delete-btn" onclick="deleteProducer(${r.id})">×</button>
+        <button class="delete-btn" onclick="deleteProducer('${r.producer_name}')">×</button>
       </div>
     `).join('');
   } catch (e) {
