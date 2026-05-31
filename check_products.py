@@ -8,7 +8,9 @@ VINMONOPOLET_API_KEY = os.environ.get("VINMONOPOLET_API_KEY", "")
 NTFY_TOPIC           = os.environ.get("NTFY_TOPIC", "")
 NTFY_URL             = "https://ntfy.sh"
 
-WATCH_LIST = []
+WATCH_LIST = [
+    {"id": "11501901", "name": "Adrien Renoir Le Terroir Verzy Grand Cru Extra Brut"},
+]
 
 NEARBY_STORES = [
     "Bærum, Bekkestua","Bærum, Østerås","Oslo, CC Vest","Bærum, Fornebu",
