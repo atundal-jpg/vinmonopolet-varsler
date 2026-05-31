@@ -118,7 +118,9 @@ def search_products(producer_name, category=None):
         print(f"    ⚠️  Feil ved søk etter {producer_name}: {e}")
         return []
 
-    return data.get("results", [])
+    all_products = data.get("products", [])
+    print(f"    🔎  Søk returnerte {len(all_products)} produkt(er) for '{producer_name}'")
+    return all_products
 
 # ─── Tilstandshåndtering ──────────────────────────────────────────────────────
 
