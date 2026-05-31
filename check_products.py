@@ -248,18 +248,21 @@ def check_watch_producers(state):
             # Nytt produkt vi ikke har sett før
             if pid not in prev_ids:
                 print(f"    🆕  Nytt produkt fra {producer}: {name}")
-                status = "tilgjengelig i butikk" if in_store else ("kan bestilles på nett" if can_deliver else "ikke tilgjengelig ennå")
-                send_notification(
-                    title=f"🆕 Nytt fra {producer}: {name}",
-                    message=(
-                        f"{name}\n"
-                        f"Pris: {price}\n"
-                        f"Status: {status}\n\n"
-                        f"https://www.vinmonopolet.no/p/{pid}"
-                    ),
-                    priority="high", tags="wine,new"
-                )
-            # Kjent produkt – sjekk om tilgjengelighet har endret seg
+                # Varsle kun hvis tilgjengelig
+                if in_store:
+                    send_notification(
+                        title=f"🍷 {name} er i butikk!",
+                        message=f"{name}\nPris: {price}\n\nhttps://www.vinmonopolet.no/p/{pid}",
+                        priority="urgent", tags="wine,rotating_light"
+                    )
+                elif can_deliver:
+                    send_notification(
+                        title=f"📦 {name} kan bestilles!",
+                        message=f"{name}\nPris: {price}\n\nhttps://www.vinmonopolet.no/p/{pid}",
+                        priority="high", tags="wine,package"
+                    )
+                else:
+                    print(f"    📭  {name}: ikke tilgjengelig ennå – lagrer for fremtidig overvåking.")
             else:
                 prev_status = state.get("watch_status", {}).get(f"producer_{pid}", {})
                 if in_store and not prev_status.get("in_store"):
