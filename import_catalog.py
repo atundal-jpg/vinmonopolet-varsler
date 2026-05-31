@@ -35,10 +35,10 @@ def fetch_batch(start):
     params = urllib.parse.urlencode({
         "maxResults": BATCH_SIZE,
         "start": start,
+        "subscription-key": VINMONOPOLET_API_KEY,
     })
     url = f"https://apis.vinmonopolet.no/products/v0/details-normal?{params}"
     req = urllib.request.Request(url, headers={
-        "Ocp-Apim-Subscription-Key": VINMONOPOLET_API_KEY,
         "Accept": "application/json",
     })
     try:
