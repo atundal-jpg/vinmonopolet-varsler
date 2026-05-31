@@ -4,12 +4,34 @@
     "11501901": {
       "in_store": true,
       "delivery": false,
-      "last_checked": "2026-05-31T07:47:58.378030"
+      "last_checked": "2026-05-31T07:51:51.351573"
     },
     "19724201": {
       "in_store": true,
       "delivery": true,
-      "last_checked": "2026-05-31T07:47:58.730919"
+      "last_checked": "2026-05-31T07:51:51.696349"
+    },
+    "producer_20019301": {
+      "in_store": true,
+      "delivery": false,
+      "last_checked": "2026-05-31T07:51:52.323733"
+    },
+    "producer_19868501": {
+      "in_store": true,
+      "delivery": false,
+      "last_checked": "2026-05-31T07:51:52.406222"
+    },
+    "producer_20551601": {
+      "in_store": true,
+      "delivery": false,
+      "last_checked": "2026-05-31T07:51:52.488569"
     }
+  },
+  "producer_products": {
+    "Dom. Hubert Lamy": [
+      "20019301",
+      "20551601",
+      "19868501"
+    ]
   }
 }
