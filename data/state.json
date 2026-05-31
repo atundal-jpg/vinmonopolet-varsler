@@ -4,110 +4,110 @@
     "producer_20019301": {
       "in_store": true,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:27.811408"
+      "last_checked": "2026-05-31T17:35:14.134367"
     },
     "producer_19868501": {
       "in_store": true,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:27.902463"
+      "last_checked": "2026-05-31T17:35:14.134396"
     },
     "producer_20551601": {
       "in_store": true,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:27.994711"
+      "last_checked": "2026-05-31T17:35:14.134400"
     },
     "producer_20375105": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.152839"
+      "last_checked": "2026-05-31T17:35:15.327847"
     },
     "producer_20375005": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.152855"
+      "last_checked": "2026-05-31T17:35:15.327861"
     },
     "producer_20490701": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.152861"
+      "last_checked": "2026-05-31T17:35:15.327864"
     },
     "producer_20491001": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.152867"
+      "last_checked": "2026-05-31T17:35:15.327866"
     },
     "producer_20490601": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.152875"
+      "last_checked": "2026-05-31T17:35:15.327869"
     },
     "producer_20490905": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.152880"
+      "last_checked": "2026-05-31T17:35:15.327871"
     },
     "producer_20490501": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.152885"
+      "last_checked": "2026-05-31T17:35:15.327873"
     },
     "producer_20490805": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.152889"
+      "last_checked": "2026-05-31T17:35:15.327875"
     },
     "producer_20491201": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.152894"
+      "last_checked": "2026-05-31T17:35:15.327877"
     },
     "producer_20491101": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.152899"
+      "last_checked": "2026-05-31T17:35:15.327879"
     },
     "producer_20491401": {
       "in_store": true,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.250974"
+      "last_checked": "2026-05-31T17:35:15.327881"
     },
     "producer_20489105": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.250995"
+      "last_checked": "2026-05-31T17:35:15.327883"
     },
     "producer_20491301": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.251002"
+      "last_checked": "2026-05-31T17:35:15.327886"
     },
     "producer_20491501": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:30:29.251007"
+      "last_checked": "2026-05-31T17:35:15.327888"
     }
   },
   "producer_products": {
     "Dom. Hubert Lamy": [
-      "20019301",
+      "20551601",
       "19868501",
-      "20551601"
+      "20019301"
     ],
     "Produttori del Barbaresco": [
-      "20375005",
+      "20491001",
       "20375105",
-      "20490905",
-      "20490601",
-      "20490701",
-      "20490501",
-      "20491501",
-      "20491301",
-      "20491101",
-      "20491401",
-      "20491201",
-      "20489105",
       "20490805",
-      "20491001"
+      "20490701",
+      "20491201",
+      "20491401",
+      "20491301",
+      "20490601",
+      "20375005",
+      "20490905",
+      "20489105",
+      "20491101",
+      "20491501",
+      "20490501"
     ]
   }
 }
