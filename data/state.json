@@ -1,4 +1,10 @@
 {
   "seen_ids": [],
-  "watch_status": {}
+  "watch_status": {
+    "11501901": {
+      "stores": [],
+      "delivery": false,
+      "last_checked": "2026-05-31T05:31:17.240318"
+    }
+  }
 }
