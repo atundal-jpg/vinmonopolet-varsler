@@ -505,7 +505,7 @@ async function addProduct() {
 
 async function deleteProduct(id) {
   try {
-    await sbFetch(`watch_products?id=eq.${id}`, { method: 'DELETE' });
+    await sbFetch(`watch_products?product_id=eq.${id}`, { method: 'DELETE' });
     toast('Slettet', 'success');
     loadProducts();
   } catch (e) {
@@ -517,7 +517,7 @@ async function loadProducts() {
   const el = document.getElementById('products-list');
   el.innerHTML = '<div class="empty-state"><span class="icon">⏳</span>Laster...</div>';
   try {
-    const rows = await sbFetch('watch_products?select=*&order=id.desc');
+    const rows = await sbFetch('watch_products?select=*&order=product_id.desc');
     if (!rows || rows.length === 0) {
       el.innerHTML = '<div class="empty-state"><span class="icon">🍾</span>Ingen produkter ennå</div>';
       return;
