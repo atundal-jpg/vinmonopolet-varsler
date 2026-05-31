@@ -2,9 +2,9 @@
   "seen_ids": [],
   "watch_status": {
     "11501901": {
-      "stores": [],
+      "in_store": true,
       "delivery": false,
-      "last_checked": "2026-05-31T05:31:17.240318"
+      "last_checked": "2026-05-31T05:37:02.038840"
     }
   }
 }
