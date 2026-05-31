@@ -4,110 +4,196 @@
     "producer_20019301": {
       "in_store": true,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:18.572370"
+      "last_checked": "2026-05-31T17:55:15.338379"
     },
     "producer_19868501": {
       "in_store": true,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:18.572386"
+      "last_checked": "2026-05-31T17:55:15.338391"
     },
     "producer_20551601": {
       "in_store": true,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:18.572390"
+      "last_checked": "2026-05-31T17:55:15.338395"
     },
     "producer_20375105": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547052"
+      "last_checked": "2026-05-31T17:55:16.751319"
     },
     "producer_20375005": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547067"
+      "last_checked": "2026-05-31T17:55:16.751332"
     },
     "producer_20490701": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547071"
+      "last_checked": "2026-05-31T17:55:16.751335"
     },
     "producer_20491001": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547073"
+      "last_checked": "2026-05-31T17:55:16.751337"
     },
     "producer_20490601": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547076"
+      "last_checked": "2026-05-31T17:55:16.751339"
     },
     "producer_20490905": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547078"
+      "last_checked": "2026-05-31T17:55:16.751340"
     },
     "producer_20490501": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547080"
+      "last_checked": "2026-05-31T17:55:16.751342"
     },
     "producer_20490805": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547082"
+      "last_checked": "2026-05-31T17:55:16.751343"
     },
     "producer_20491201": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547084"
+      "last_checked": "2026-05-31T17:55:16.751345"
     },
     "producer_20491101": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547087"
+      "last_checked": "2026-05-31T17:55:16.751347"
     },
     "producer_20491401": {
       "in_store": true,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547089"
+      "last_checked": "2026-05-31T17:55:16.751349"
     },
     "producer_20489105": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547091"
+      "last_checked": "2026-05-31T17:55:16.751351"
     },
     "producer_20491301": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547093"
+      "last_checked": "2026-05-31T17:55:16.751352"
     },
     "producer_20491501": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-05-31T17:50:19.547096"
+      "last_checked": "2026-05-31T17:55:16.751354"
+    },
+    "producer_17333901": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984202"
+    },
+    "producer_16628401": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984217"
+    },
+    "producer_16627301": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984221"
+    },
+    "producer_12467301": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984225"
+    },
+    "producer_12473305": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984228"
+    },
+    "producer_12467901": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984231"
+    },
+    "producer_12468001": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984234"
+    },
+    "producer_17334001": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984237"
+    },
+    "producer_12468201": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984239"
+    },
+    "producer_16627801": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984242"
+    },
+    "producer_17333801": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984245"
+    },
+    "producer_12473601": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984248"
+    },
+    "producer_19532501": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984250"
+    },
+    "producer_19531701": {
+      "in_store": false,
+      "delivery": false,
+      "last_checked": "2026-05-31T17:55:19.984253"
     }
   },
   "producer_products": {
     "Dom. Hubert Lamy": [
-      "20019301",
+      "19868501",
       "20551601",
-      "19868501"
+      "20019301"
     ],
     "Produttori del Barbaresco": [
-      "20490805",
-      "20491101",
-      "20491501",
-      "20375105",
-      "20491001",
-      "20490501",
-      "20375005",
-      "20491301",
-      "20490905",
-      "20491401",
       "20489105",
+      "20491501",
+      "20491001",
       "20491201",
+      "20375005",
+      "20490701",
+      "20490905",
       "20490601",
-      "20490701"
+      "20490501",
+      "20491401",
+      "20491301",
+      "20490805",
+      "20375105",
+      "20491101"
+    ],
+    "Dom. Raveneau": [
+      "12467901",
+      "12468001",
+      "12473601",
+      "16627301",
+      "16627801",
+      "19532501",
+      "12468201",
+      "19531701",
+      "16628401",
+      "17334001",
+      "12473305",
+      "17333901",
+      "12467301",
+      "17333801"
     ]
   }
 }
