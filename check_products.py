@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import time
 import urllib.request
 import urllib.parse
 from datetime import datetime
@@ -204,6 +205,8 @@ def check_watch_products(state):
             "last_checked": datetime.now().isoformat(),
         }
 
+        time.sleep(2)  # Pause mellom hvert produkt for å unngå rate-limiting
+
     return state
 
 # ─── Sjekk produsenter ────────────────────────────────────────────────────────
@@ -288,6 +291,8 @@ def check_watch_producers(state):
         if "producer_products" not in state:
             state["producer_products"] = {}
         state["producer_products"][producer] = list(current_ids)
+
+        time.sleep(2)  # Pause mellom hver produsent for å unngå rate-limiting
 
     return state
 
