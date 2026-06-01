@@ -38,8 +38,10 @@ def supabase_get(table):
 def fetch_availability(product_id):
     url = f"https://www.vinmonopolet.no/vmpws/v3/vmp/products/{product_id}/availability"
     req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "nb-NO,nb;q=0.9,en;q=0.8",
+        "Referer": "https://www.vinmonopolet.no/",
     })
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -109,8 +111,10 @@ def search_products(producer_name, category=None):
     })
     url = f"https://www.vinmonopolet.no/vmpws/v2/vmp/products/search?{params}"
     req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "nb-NO,nb;q=0.9,en;q=0.8",
+        "Referer": "https://www.vinmonopolet.no/",
     })
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
