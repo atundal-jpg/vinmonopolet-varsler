@@ -89,72 +89,72 @@
     "producer_17333901": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063548"
+      "last_checked": "2026-06-05T13:33:30.162995"
     },
     "producer_16628401": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063558"
+      "last_checked": "2026-06-05T13:33:30.163008"
     },
     "producer_16627301": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063561"
+      "last_checked": "2026-06-05T13:33:30.163012"
     },
     "producer_12467301": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063563"
+      "last_checked": "2026-06-05T13:33:30.163014"
     },
     "producer_12473305": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063566"
+      "last_checked": "2026-06-05T13:33:30.163017"
     },
     "producer_12467901": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063568"
+      "last_checked": "2026-06-05T13:33:30.163019"
     },
     "producer_12468001": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063570"
+      "last_checked": "2026-06-05T13:33:30.163022"
     },
     "producer_17334001": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063573"
+      "last_checked": "2026-06-05T13:33:30.163024"
     },
     "producer_12468201": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063575"
+      "last_checked": "2026-06-05T13:33:30.163026"
     },
     "producer_16627801": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063577"
+      "last_checked": "2026-06-05T13:33:30.163028"
     },
     "producer_17333801": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063579"
+      "last_checked": "2026-06-05T13:33:30.163030"
     },
     "producer_12473601": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063581"
+      "last_checked": "2026-06-05T13:33:30.163032"
     },
     "producer_19532501": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063583"
+      "last_checked": "2026-06-05T13:33:30.163035"
     },
     "producer_19531701": {
       "in_store": false,
       "delivery": false,
-      "last_checked": "2026-06-05T13:20:35.063585"
+      "last_checked": "2026-06-05T13:33:30.163037"
     },
     "17005901": {
       "in_store": false,
@@ -190,20 +190,20 @@
       "20375005"
     ],
     "Dom. Raveneau": [
-      "12468001",
+      "19531701",
       "12467901",
       "16628401",
       "16627801",
       "12468201",
-      "17334001",
-      "19531701",
-      "19532501",
-      "17333901",
-      "12467301",
-      "12473601",
-      "17333801",
       "16627301",
-      "12473305"
+      "12473601",
+      "12467301",
+      "12473305",
+      "17334001",
+      "12468001",
+      "17333901",
+      "17333801",
+      "19532501"
     ]
   }
 }
