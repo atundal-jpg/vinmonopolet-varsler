@@ -50,28 +50,63 @@ def fetch_availability(product_id):
         print(f"    ⚠️  Feil ved henting av tilgjengelighet for {product_id}: {e}")
     return None
 
+def producer_products_in_nearby_stores(brand_key):
+    """Returnerer en dict {product_id: [butikknavn, ...]} for produsentens
+    produkter som finnes i brukerens nærbutikker.
+
+    Gjør ett søk per nærbutikk (kombinerer availableInStores + brand),
+    slik at vi vet nøyaktig hvilke produkter som ligger i hvilke butikker.
+    """
+    result = {}
+    for store_name, store_code in NEARBY_STORE_CODES.items():
+        query = f":relevance:availableInStores:{store_code}:brand:{brand_key}"
+        params = urllib.parse.urlencode({
+            "fields": "BASIC",
+            "pageSize": 50,
+            "currentPage": 0,
+            "q": query,
+        })
+        url = f"https://www.vinmonopolet.no/vmpws/v2/vmp/products/search?{params}"
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "nb-NO,nb;q=0.9,en;q=0.8",
+            "Referer": "https://www.vinmonopolet.no/",
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
+            for p in data.get("products", []):
+                pid = str(p.get("code", ""))
+                if pid:
+                    result.setdefault(pid, []).append(store_name)
+        except Exception as e:
+            print(f"    ⚠️  Butikksjekk feilet ({store_name}, {brand_key}): {e}")
+        time.sleep(1)
+    return result
+
 # ─── Vinmonopolet produktsøk (internt brand-endepunkt, ingen API-nøkkel) ──────
 
-# Butikkoder for nærhetsfilter (hentet fra Vinmonopolets API)
+# Butikkoder for nærhetsfilter (verifisert mot Vinmonopolets offisielle butikkliste)
 NEARBY_STORE_CODES = {
-    "Bærum, Bekkestua": "423",
-    "Bærum, Østerås": "422",
-    "Oslo, CC Vest": "306",
-    "Bærum, Fornebu": "452",
-    "Oslo, Røa": "303",
-    "Bærum, Kolsås": "421",
-    "Bærum, Sandvika": "420",
+    "Bærum, Bekkestua": "190",
+    "Bærum, Østerås": "198",
+    "Oslo, CC Vest": "127",
+    "Bærum, Fornebu": "442",
+    "Oslo, Røa": "335",
+    "Bærum, Kolsås": "124",
+    "Bærum, Sandvika": "194",
     "Bærum, Bærums Verk": "453",
-    "Oslo, Skøyen": "305",
-    "Oslo, Frogner": "302",
-    "Oslo, Vinderen": "304",
-    "Oslo, Colosseum": "308",
-    "Oslo, Briskeby": "301",
-    "Oslo, Valkyrien": "309",
-    "Oslo, Aker Brygge": "307",
-    "Oslo, Paleet": "300",
-    "Oslo, Ullevaal Stadion": "310",
-    "Oslo, Steen & Strøm": "311",
+    "Oslo, Skøyen": "393",
+    "Oslo, Frogner": "111",
+    "Oslo, Vinderen": "454",
+    "Oslo, Colosseum": "136",
+    "Oslo, Briskeby": "104",
+    "Oslo, Valkyrien": "471",
+    "Oslo, Aker Brygge": "114",
+    "Oslo, Paleet": "141",
+    "Oslo, Ullevaal Stadion": "334",
+    "Oslo, Steen & Strøm": "286",
 }
 
 CATEGORY_MAP = {
@@ -159,6 +194,44 @@ def send_notification(title, message, priority="high", tags="wine"):
     except Exception as e:
         print(f"    ⚠️  Varsel feilet: {e}")
 
+def product_nearby_stores(product_id):
+    """Returnerer hvilke av brukerens nærbutikker som har ETT gitt produkt.
+
+    Bruker fritekst-søk på produkt-ID. availableInStores-fasetten i svaret
+    lister da alle butikker som har akkurat dette produktet – i ett kall.
+    """
+    query = f"{product_id}:relevance"
+    params = urllib.parse.urlencode({
+        "fields": "BASIC",
+        "pageSize": 1,
+        "currentPage": 0,
+        "q": query,
+    })
+    url = f"https://www.vinmonopolet.no/vmpws/v2/vmp/products/search?{params}"
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "nb-NO,nb;q=0.9,en;q=0.8",
+        "Referer": "https://www.vinmonopolet.no/",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+    except Exception as e:
+        print(f"    ⚠️  Butikksjekk feilet for {product_id}: {e}")
+        return []
+
+    # Finn availableInStores-fasetten
+    store_codes = set()
+    for facet in data.get("facets", []):
+        if facet.get("code") == "availableInStores":
+            for v in facet.get("values", []):
+                store_codes.add(str(v.get("code", "")))
+
+    # Kryss mot brukerens nærbutikker
+    code_to_name = {code: name for name, code in NEARBY_STORE_CODES.items()}
+    return [code_to_name[c] for c in store_codes if c in code_to_name]
+
 # ─── Sjekk enkeltprodukter ────────────────────────────────────────────────────
 
 def check_watch_products(state):
@@ -178,18 +251,23 @@ def check_watch_products(state):
         if not avail:
             continue
 
-        in_store    = avail.get("storesAvailability", {}).get("availableForPurchase", False)
         can_deliver = avail.get("deliveryAvailability", {}).get("availableForPurchase", False)
-        prev        = state["watch_status"].get(pid, {"in_store": False, "delivery": False})
+
+        # Butikk-presis sjekk: hvilke av DINE butikker har produktet?
+        my_stores = product_nearby_stores(pid)
+        in_store  = len(my_stores) > 0
+        store_list = ", ".join(my_stores)
+
+        prev = state["watch_status"].get(pid, {"in_store": False, "delivery": False})
 
         if in_store and not prev.get("in_store"):
             send_notification(
-                title=f"🍷 {pname} er i butikk!",
-                message=f"{pname} er nå tilgjengelig i butikk.\n\nSjekk butikker:\nhttps://www.vinmonopolet.no/p/{pid}",
+                title=f"🍷 {pname} finnes nær deg!",
+                message=f"{pname}\nButikk: {store_list}\n\nhttps://www.vinmonopolet.no/p/{pid}",
                 priority="urgent", tags="wine,rotating_light"
             )
         elif not in_store and prev.get("in_store"):
-            print(f"    📭  {pname}: ikke lenger i butikk.")
+            print(f"    📭  {pname}: ikke lenger i dine butikker.")
 
         if can_deliver and not prev.get("delivery"):
             send_notification(
@@ -201,11 +279,12 @@ def check_watch_products(state):
             print(f"    📭  {pname}: kan ikke lenger bestilles.")
 
         if not in_store and not can_deliver:
-            print(f"    📭  {pname}: ikke tilgjengelig.")
+            print(f"    📭  {pname}: ikke i dine butikker / kan ikke bestilles.")
 
         state["watch_status"][pid] = {
             "in_store": in_store,
             "delivery": can_deliver,
+            "stores": my_stores,
             "last_checked": datetime.now().isoformat(),
         }
 
@@ -235,6 +314,10 @@ def check_watch_producers(state):
             print(f"    ℹ️  Ingen produkter funnet for {label}.")
             continue
 
+        # Finn hvilke av produsentens produkter som ligger i DINE nærbutikker
+        brand_key = producer_to_brand_key(producer)
+        nearby = producer_products_in_nearby_stores(brand_key)
+
         # Hent tidligere kjente produkt-IDer for denne produsenten
         prev_ids = set(state.get("producer_products", {}).get(producer, []))
         current_ids = set()
@@ -246,20 +329,23 @@ def check_watch_producers(state):
                 continue
             current_ids.add(pid)
 
-            # Tilgjengelighet ligger allerede i søkeresultatet
+            # Butikk-presis status: er produktet i en av DINE butikker?
+            my_stores   = nearby.get(pid, [])
+            in_store    = len(my_stores) > 0
             avail       = p.get("productAvailability", {})
-            in_store    = avail.get("storesAvailability", {}).get("availableForPurchase", False)
             can_deliver = avail.get("deliveryAvailability", {}).get("availableForPurchase", False)
             price       = p.get("price", {}).get("formattedValue", "")
+            store_list  = ", ".join(my_stores)
+
+            prev_status = state.get("watch_status", {}).get(f"producer_{pid}", {})
 
             # Nytt produkt vi ikke har sett før
             if pid not in prev_ids:
                 print(f"    🆕  Nytt produkt fra {producer}: {name}")
-                # Varsle kun hvis tilgjengelig
                 if in_store:
                     send_notification(
-                        title=f"🍷 {name} er i butikk!",
-                        message=f"{name}\nPris: {price}\n\nhttps://www.vinmonopolet.no/p/{pid}",
+                        title=f"🍷 {name} finnes nær deg!",
+                        message=f"{name}\nPris: {price}\nButikk: {store_list}\n\nhttps://www.vinmonopolet.no/p/{pid}",
                         priority="urgent", tags="wine,rotating_light"
                     )
                 elif can_deliver:
@@ -269,13 +355,12 @@ def check_watch_producers(state):
                         priority="high", tags="wine,package"
                     )
                 else:
-                    print(f"    📭  {name}: ikke tilgjengelig ennå – lagrer for fremtidig overvåking.")
+                    print(f"    📭  {name}: ikke i dine butikker / kan ikke bestilles ennå – overvåkes.")
             else:
-                prev_status = state.get("watch_status", {}).get(f"producer_{pid}", {})
                 if in_store and not prev_status.get("in_store"):
                     send_notification(
-                        title=f"🍷 {name} er i butikk!",
-                        message=f"{name}\nPris: {price}\n\nhttps://www.vinmonopolet.no/p/{pid}",
+                        title=f"🍷 {name} finnes nær deg!",
+                        message=f"{name}\nPris: {price}\nButikk: {store_list}\n\nhttps://www.vinmonopolet.no/p/{pid}",
                         priority="urgent", tags="wine,rotating_light"
                     )
                 if can_deliver and not prev_status.get("delivery"):
@@ -288,6 +373,7 @@ def check_watch_producers(state):
             state.setdefault("watch_status", {})[f"producer_{pid}"] = {
                 "in_store": in_store,
                 "delivery": can_deliver,
+                "stores": my_stores,
                 "last_checked": datetime.now().isoformat(),
             }
 
