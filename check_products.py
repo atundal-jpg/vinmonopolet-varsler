@@ -50,41 +50,6 @@ def fetch_availability(product_id):
         print(f"    ⚠️  Feil ved henting av tilgjengelighet for {product_id}: {e}")
     return None
 
-def producer_products_in_nearby_stores(brand_key):
-    """Returnerer en dict {product_id: [butikknavn, ...]} for produsentens
-    produkter som finnes i brukerens nærbutikker.
-
-    Gjør ett søk per nærbutikk (kombinerer availableInStores + brand),
-    slik at vi vet nøyaktig hvilke produkter som ligger i hvilke butikker.
-    """
-    result = {}
-    for store_name, store_code in NEARBY_STORE_CODES.items():
-        query = f":relevance:availableInStores:{store_code}:brand:{brand_key}"
-        params = urllib.parse.urlencode({
-            "fields": "BASIC",
-            "pageSize": 50,
-            "currentPage": 0,
-            "q": query,
-        })
-        url = f"https://www.vinmonopolet.no/vmpws/v2/vmp/products/search?{params}"
-        req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "nb-NO,nb;q=0.9,en;q=0.8",
-            "Referer": "https://www.vinmonopolet.no/",
-        })
-        try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read())
-            for p in data.get("products", []):
-                pid = str(p.get("code", ""))
-                if pid:
-                    result.setdefault(pid, []).append(store_name)
-        except Exception as e:
-            print(f"    ⚠️  Butikksjekk feilet ({store_name}, {brand_key}): {e}")
-        time.sleep(1)
-    return result
-
 # ─── Vinmonopolet produktsøk (internt brand-endepunkt, ingen API-nøkkel) ──────
 
 # Butikkoder for nærhetsfilter (verifisert mot Vinmonopolets offisielle butikkliste)
@@ -156,11 +121,24 @@ def search_products(producer_name, category=None):
             data = json.loads(resp.read())
     except Exception as e:
         print(f"    ⚠️  Feil ved søk etter {producer_name}: {e}")
-        return []
+        return [], set()
 
     all_products = data.get("products", [])
-    print(f"    🔎  Søk returnerte {len(all_products)} produkt(er) for '{producer_name}'")
-    return all_products
+
+    # Plukk ut availableInStores-fasetten fra SAMME svar (ingen ekstra kall).
+    # Gir oss hvilke av brukerens nærbutikker som har noe fra produsenten.
+    code_to_name = {code: name for name, code in NEARBY_STORE_CODES.items()}
+    nearby_store_names = set()
+    for facet in data.get("facets", []):
+        if facet.get("code") == "availableInStores":
+            for v in facet.get("values", []):
+                code = str(v.get("code", ""))
+                if code in code_to_name:
+                    nearby_store_names.add(code_to_name[code])
+
+    print(f"    🔎  Søk returnerte {len(all_products)} produkt(er) for '{producer_name}'"
+          + (f" – nærbutikk-treff: {', '.join(nearby_store_names)}" if nearby_store_names else ""))
+    return all_products, nearby_store_names
 
 # ─── Tilstandshåndtering ──────────────────────────────────────────────────────
 
@@ -309,18 +287,23 @@ def check_watch_producers(state):
         label = f"{producer}" + (f" ({category})" if category else "")
         print(f"    🔍  Sjekker produsent: {label}")
 
-        products = search_products(producer, category if category else None)
+        # Ett enkelt søk gir BÅDE produktlista og hvilke nærbutikker som
+        # har noe fra produsenten (via fasetten i samme svar – ingen ekstra kall).
+        products, producer_nearby_stores = search_products(
+            producer, category if category else None
+        )
         if not products:
             print(f"    ℹ️  Ingen produkter funnet for {label}.")
             continue
 
-        # Finn hvilke av produsentens produkter som ligger i DINE nærbutikker
-        brand_key = producer_to_brand_key(producer)
-        nearby = producer_products_in_nearby_stores(brand_key)
-
         # Hent tidligere kjente produkt-IDer for denne produsenten
         prev_ids = set(state.get("producer_products", {}).get(producer, []))
         current_ids = set()
+
+        # Hvorvidt produsenten i det hele tatt har noe i nærbutikkene dine.
+        # Brukes som billig forhåndsfilter: bare hvis dette er sant er det
+        # verdt å gjøre et presist per-produkt-kall for å finne ut HVILKEN vin.
+        producer_has_nearby = len(producer_nearby_stores) > 0
 
         for p in products:
             pid  = str(p.get("code", ""))
@@ -329,18 +312,22 @@ def check_watch_producers(state):
                 continue
             current_ids.add(pid)
 
-            # Butikk-presis status: er produktet i en av DINE butikker?
-            my_stores   = nearby.get(pid, [])
-            in_store    = len(my_stores) > 0
             avail       = p.get("productAvailability", {})
             can_deliver = avail.get("deliveryAvailability", {}).get("availableForPurchase", False)
             price       = p.get("price", {}).get("formattedValue", "")
-            store_list  = ", ".join(my_stores)
 
             prev_status = state.get("watch_status", {}).get(f"producer_{pid}", {})
+            is_new      = pid not in prev_ids
 
-            # Nytt produkt vi ikke har sett før
-            if pid not in prev_ids:
+            # Butikk-presisjon kun når det er grunn til det: produktet er nytt
+            # ELLER produsenten har fått noe i nærbutikk siden sist. Da – og bare
+            # da – gjør vi ett presist per-produkt-kall for å bekrefte butikk.
+            did_store_check = producer_has_nearby and (is_new or not prev_status.get("in_store"))
+            my_stores = product_nearby_stores(pid) if did_store_check else []
+            in_store   = len(my_stores) > 0
+            store_list = ", ".join(my_stores)
+
+            if is_new:
                 print(f"    🆕  Nytt produkt fra {producer}: {name}")
                 if in_store:
                     send_notification(
@@ -370,10 +357,19 @@ def check_watch_producers(state):
                         priority="high", tags="wine,package"
                     )
 
+            # Hvis vi gjorde et butikk-kall, bruk det. Hvis ikke, behold forrige
+            # kjente butikk-status så vi ikke feilaktig "glemmer" at den lå i butikk.
+            if did_store_check:
+                stored_in_store = in_store
+                stored_stores   = my_stores
+            else:
+                stored_in_store = prev_status.get("in_store", False)
+                stored_stores   = prev_status.get("stores", [])
+
             state.setdefault("watch_status", {})[f"producer_{pid}"] = {
-                "in_store": in_store,
+                "in_store": stored_in_store,
                 "delivery": can_deliver,
-                "stores": my_stores,
+                "stores": stored_stores,
                 "last_checked": datetime.now().isoformat(),
             }
 
