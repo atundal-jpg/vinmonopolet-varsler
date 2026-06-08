@@ -172,15 +172,38 @@ def send_notification(title, message, priority="high", tags="wine"):
     except Exception as e:
         print(f"    ⚠️  Varsel feilet: {e}")
 
+def notify_in_store(name, price, store_list, pid, is_release):
+    """Sender 'i butikk'-varsel. Slipp-viner får egen tekst, fordi flaskene
+    er allokert til butikk før de frigis for salg på slippdato – de kan ikke
+    kjøpes ennå, men det er et forvarsel om at man bør melde seg på slippet."""
+    url = f"https://www.vinmonopolet.no/p/{pid}"
+    if is_release:
+        send_notification(
+            title=f"🔔 {name} kommer på slipp!",
+            message=(
+                f"{name}\nPris: {price}\nSlippbutikk: {store_list}\n\n"
+                f"Flaskene er allokert til butikk, men frigis først på slippdato. "
+                f"Meld deg på slippet for en sjanse til å sikre deg en flaske.\n\n{url}"
+            ),
+            priority="urgent", tags="wine,bell"
+        )
+    else:
+        send_notification(
+            title=f"🍷 {name} finnes nær deg!",
+            message=f"{name}\nPris: {price}\nButikk: {store_list}\n\n{url}",
+            priority="urgent", tags="wine,rotating_light"
+        )
+
 def product_nearby_stores(product_id):
-    """Returnerer hvilke av brukerens nærbutikker som har ETT gitt produkt.
+    """Returnerer (butikkliste, er_slipp) for ETT gitt produkt.
 
     Bruker fritekst-søk på produkt-ID. availableInStores-fasetten i svaret
-    lister da alle butikker som har akkurat dette produktet – i ett kall.
+    lister alle butikker som har produktet (i ett kall), og selve produktet
+    forteller om det er en slipp-vin (releaseMode).
     """
     query = f"{product_id}:relevance"
     params = urllib.parse.urlencode({
-        "fields": "BASIC",
+        "fields": "FULL",
         "pageSize": 1,
         "currentPage": 0,
         "q": query,
@@ -197,7 +220,7 @@ def product_nearby_stores(product_id):
             data = json.loads(resp.read())
     except Exception as e:
         print(f"    ⚠️  Butikksjekk feilet for {product_id}: {e}")
-        return []
+        return [], False
 
     # Finn availableInStores-fasetten
     store_codes = set()
@@ -206,9 +229,16 @@ def product_nearby_stores(product_id):
             for v in facet.get("values", []):
                 store_codes.add(str(v.get("code", "")))
 
+    # Er produktet en slipp-vin?
+    is_release = False
+    prods = data.get("products", [])
+    if prods:
+        is_release = bool(prods[0].get("releaseMode", False))
+
     # Kryss mot brukerens nærbutikker
     code_to_name = {code: name for name, code in NEARBY_STORE_CODES.items()}
-    return [code_to_name[c] for c in store_codes if c in code_to_name]
+    nearby = [code_to_name[c] for c in store_codes if c in code_to_name]
+    return nearby, is_release
 
 # ─── Sjekk enkeltprodukter ────────────────────────────────────────────────────
 
@@ -231,19 +261,15 @@ def check_watch_products(state):
 
         can_deliver = avail.get("deliveryAvailability", {}).get("availableForPurchase", False)
 
-        # Butikk-presis sjekk: hvilke av DINE butikker har produktet?
-        my_stores = product_nearby_stores(pid)
+        # Butikk-presis sjekk: hvilke av DINE butikker har produktet? + slipp-flagg
+        my_stores, is_release = product_nearby_stores(pid)
         in_store  = len(my_stores) > 0
         store_list = ", ".join(my_stores)
 
         prev = state["watch_status"].get(pid, {"in_store": False, "delivery": False})
 
         if in_store and not prev.get("in_store"):
-            send_notification(
-                title=f"🍷 {pname} finnes nær deg!",
-                message=f"{pname}\nButikk: {store_list}\n\nhttps://www.vinmonopolet.no/p/{pid}",
-                priority="urgent", tags="wine,rotating_light"
-            )
+            notify_in_store(pname, "", store_list, pid, is_release)
         elif not in_store and prev.get("in_store"):
             print(f"    📭  {pname}: ikke lenger i dine butikker.")
 
@@ -315,6 +341,7 @@ def check_watch_producers(state):
             avail       = p.get("productAvailability", {})
             can_deliver = avail.get("deliveryAvailability", {}).get("availableForPurchase", False)
             price       = p.get("price", {}).get("formattedValue", "")
+            is_release  = bool(p.get("releaseMode", False))
 
             prev_status = state.get("watch_status", {}).get(f"producer_{pid}", {})
             is_new      = pid not in prev_ids
@@ -323,18 +350,16 @@ def check_watch_producers(state):
             # ELLER produsenten har fått noe i nærbutikk siden sist. Da – og bare
             # da – gjør vi ett presist per-produkt-kall for å bekrefte butikk.
             did_store_check = producer_has_nearby and (is_new or not prev_status.get("in_store"))
-            my_stores = product_nearby_stores(pid) if did_store_check else []
+            my_stores = []
+            if did_store_check:
+                my_stores, _ = product_nearby_stores(pid)
             in_store   = len(my_stores) > 0
             store_list = ", ".join(my_stores)
 
             if is_new:
                 print(f"    🆕  Nytt produkt fra {producer}: {name}")
                 if in_store:
-                    send_notification(
-                        title=f"🍷 {name} finnes nær deg!",
-                        message=f"{name}\nPris: {price}\nButikk: {store_list}\n\nhttps://www.vinmonopolet.no/p/{pid}",
-                        priority="urgent", tags="wine,rotating_light"
-                    )
+                    notify_in_store(name, price, store_list, pid, is_release)
                 elif can_deliver:
                     send_notification(
                         title=f"📦 {name} kan bestilles!",
@@ -345,11 +370,7 @@ def check_watch_producers(state):
                     print(f"    📭  {name}: ikke i dine butikker / kan ikke bestilles ennå – overvåkes.")
             else:
                 if in_store and not prev_status.get("in_store"):
-                    send_notification(
-                        title=f"🍷 {name} finnes nær deg!",
-                        message=f"{name}\nPris: {price}\nButikk: {store_list}\n\nhttps://www.vinmonopolet.no/p/{pid}",
-                        priority="urgent", tags="wine,rotating_light"
-                    )
+                    notify_in_store(name, price, store_list, pid, is_release)
                 if can_deliver and not prev_status.get("delivery"):
                     send_notification(
                         title=f"📦 {name} kan bestilles!",
