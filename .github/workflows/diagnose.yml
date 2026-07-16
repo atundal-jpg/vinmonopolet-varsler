@@ -1,0 +1,19 @@
+name: Diagnose Brand Key
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hent kode
+        uses: actions/checkout@v4
+
+      - name: Sett opp Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Kjør diagnose
+        run: python diagnose_brand.py
