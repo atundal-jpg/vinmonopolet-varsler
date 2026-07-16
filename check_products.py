@@ -79,6 +79,7 @@ CATEGORY_MAP = {
     "rødvin": "rødvin",
     "rosévin": "rosévin",
     "musserende": "musserende_vin",
+    "musserende vin": "musserende_vin",
     "sterkvin": "sterkvin",
     "brennevin": "brennevin",
 }
