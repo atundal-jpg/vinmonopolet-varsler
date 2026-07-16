@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
 """Engangs-diagnoseskript: finner Vinmonopolets FAKTISKE brand-nøkkel for en
-produsent, ved å søke fritekst og se hva 'brand'-fasetten i svaret faktisk
-inneholder. Brukes til å feilsøke producer_to_brand_key()-gjetningen i
-check_products.py. Slettes etter bruk."""
+produsent. Slettes etter bruk."""
 import json
 import urllib.parse
 import urllib.request
-
-PRODUCER = "Elise Bougy"
 
 def search(query, page_size=20):
     params = urllib.parse.urlencode({
@@ -26,15 +22,46 @@ def search(query, page_size=20):
     with urllib.request.urlopen(req, timeout=15) as resp:
         return json.loads(resp.read())
 
-def main():
-    print(f"=== Fritekstsøk: '{PRODUCER}:relevance' ===")
-    data = search(f"{PRODUCER}:relevance")
-    print(f"Antall produkter: {len(data.get('products', []))}")
+def try_query(label, query):
+    data = search(query)
+    n = len(data.get("products", []))
+    print(f"\n--- {label} ---\nquery={query!r}\nAntall produkter: {n}")
     for p in data.get("products", []):
         print(f"  code={p.get('code')!r}  name={p.get('name')!r}")
+    return data
 
-    print("\n=== Fasetter i svaret (leter etter brand-relatert) ===")
-    for facet in data.get("facets", []):
+def main():
+    # 1) Full rådump av ett produkt fra et fritekstsøk, for å se ALLE felter.
+    data = try_query("Fritekstsøk", "Elise Bougy:relevance")
+    prods = data.get("products", [])
+    if prods:
+        print("\n=== FULL rådump av første produkt (json) ===")
+        print(json.dumps(prods[0], ensure_ascii=False, indent=2))
+        print("\n=== url-felt for begge produkter ===")
+        for p in prods:
+            print(f"  {p.get('code')}: {p.get('url')!r}")
+
+    # 2) Bekreft at dagens gjettede brand-nøkkel gir 0 treff.
+    try_query("Brand-filter (gjettet nøkkel)", ":name-asc:brand:elise_bougy")
+
+    # 3) Prøv noen alternative varianter av brand-nøkkelen.
+    candidates = [
+        "elisebougy",
+        "bougy",
+        "elise-bougy",
+        "elise_bougy_champagne",
+        "champagne_elise_bougy",
+        "e_bougy",
+    ]
+    for c in candidates:
+        try_query(f"Brand-filter (variant: {c})", f":name-asc:brand:{c}")
+
+    # 4) Sjekk en produsent vi VET fungerer, som fasit på hvordan et
+    #    riktig brand-svar med treff faktisk ser ut (fasetter osv).
+    data_ok = try_query("Kontroll: kjent fungerende produsent (Dom. Raveneau)",
+                         ":name-asc:brand:dom_raveneau:mainCategory:hvitvin")
+    print("\n=== Fasetter for KONTROLL-søket (leter etter brand) ===")
+    for facet in data_ok.get("facets", []):
         code = facet.get("code", "")
         name = facet.get("name", "")
         values = facet.get("values", [])
@@ -42,17 +69,8 @@ def main():
         marker = " <-- SER RELEVANT UT" if interesting else ""
         print(f"  facet code={code!r} name={name!r} ({len(values)} verdier){marker}")
         if interesting:
-            for v in values[:30]:
+            for v in values[:10]:
                 print(f"      code={v.get('code')!r}  name={v.get('name')!r}  count={v.get('count')}")
-
-    print("\n=== Rådump av felter på første produkt (nøkler) ===")
-    prods = data.get("products", [])
-    if prods:
-        print(sorted(prods[0].keys()))
-        # Print anything that smells like brand/producer/manufacturer
-        for k, v in prods[0].items():
-            if any(s in k.lower() for s in ("brand", "produ", "manufact", "supplier", "goods")):
-                print(f"  {k} = {v!r}")
 
 if __name__ == "__main__":
     main()
