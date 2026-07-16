@@ -93,16 +93,9 @@ def producer_to_brand_key(producer_name):
     name = name.strip('_')
     return name
 
-def search_products(producer_name, category=None):
-    """Søker etter produkter fra en produsent via Vinmonopolets interne brand-søk."""
-    brand_key = producer_to_brand_key(producer_name)
-
-    # Bygg query med valgfritt kategorifilter
-    query = f":name-asc:brand:{brand_key}"
-    if category:
-        cat_key = CATEGORY_MAP.get(category.lower(), category.lower())
-        query += f":mainCategory:{cat_key}"
-
+def _run_product_search(query):
+    """Kjører selve søket mot Vinmonopolets produktsøk-endepunkt og
+    returnerer (produkter, nærbutikk-navn) fra svaret."""
     params = urllib.parse.urlencode({
         "fields": "FULL",
         "pageSize": 50,
@@ -120,7 +113,7 @@ def search_products(producer_name, category=None):
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read())
     except Exception as e:
-        print(f"    ⚠️  Feil ved søk etter {producer_name}: {e}")
+        print(f"    ⚠️  Feil ved søk ({query}): {e}")
         return [], set()
 
     all_products = data.get("products", [])
@@ -135,6 +128,42 @@ def search_products(producer_name, category=None):
                 code = str(v.get("code", ""))
                 if code in code_to_name:
                     nearby_store_names.add(code_to_name[code])
+
+    return all_products, nearby_store_names
+
+def search_products(producer_name, category=None):
+    """Søker etter produkter fra en produsent via Vinmonopolets interne brand-søk.
+
+    producer_to_brand_key() er en GJETNING på Vinmonopolets interne
+    brand-nøkkel, og den gjetningen treffer ikke alltid (aksenter,
+    forkortelser, uvanlig rekkefølge på ord, osv). Gir brand-søket 0 treff,
+    faller vi tilbake til et fritekstsøk på produsentnavnet, og etterfiltrerer
+    på at produktnavnet faktisk starter med produsentnavnet – slik unngår vi
+    både å gå glipp av produsenten OG å plukke opp urelaterte treff.
+    """
+    brand_key = producer_to_brand_key(producer_name)
+    query = f":name-asc:brand:{brand_key}"
+    if category:
+        cat_key = CATEGORY_MAP.get(category.lower(), category.lower())
+        query += f":mainCategory:{cat_key}"
+
+    all_products, nearby_store_names = _run_product_search(query)
+
+    if not all_products:
+        fallback_query = f"{producer_name}:relevance"
+        if category:
+            cat_key = CATEGORY_MAP.get(category.lower(), category.lower())
+            fallback_query += f":mainCategory:{cat_key}"
+
+        candidates, nearby_store_names = _run_product_search(fallback_query)
+        needle = producer_name.strip().lower()
+        all_products = [
+            p for p in candidates
+            if p.get("name", "").strip().lower().startswith(needle)
+        ]
+        if all_products:
+            print(f"    🔁  Brand-nøkkel '{brand_key}' ga 0 treff for '{producer_name}' – "
+                  f"falt tilbake til fritekstsøk ({len(all_products)} treff).")
 
     print(f"    🔎  Søk returnerte {len(all_products)} produkt(er) for '{producer_name}'"
           + (f" – nærbutikk-treff: {', '.join(nearby_store_names)}" if nearby_store_names else ""))
