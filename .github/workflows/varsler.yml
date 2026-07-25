@@ -38,7 +38,37 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/state.json
-          git diff --staged --quiet || git commit -m "chore: oppdater tilstand [skip ci]"
-          git pull --rebase --autostash
-          git push
+
+          # Ta vare på den ferskt beregnede state.json før den evt. blir
+          # overskrevet av et reset lenger ned.
+          cp data/state.json /tmp/state.json.new
+
+          # I stedet for å pulle/rebase en commit inn i historikken (som
+          # kolliderer hvis en annen kjøring har rukket å pushe i mellomtiden),
+          # bygger vi alltid en ny commit rett oppå den nyeste main. Ved
+          # push-feil (racing kjøring eller forbigående GitHub-feil) hentes
+          # nyeste main på nytt og forsøket gjentas.
+          success=false
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/state.json.new data/state.json
+            git add data/state.json
+            if git diff --staged --quiet; then
+              echo "Ingen endringer i state.json å lagre."
+              success=true
+              break
+            fi
+            git commit -m "chore: oppdater tilstand [skip ci]"
+            if git push origin HEAD:main; then
+              success=true
+              break
+            fi
+            echo "Push feilet (forsøk $attempt/5), prøver på nytt..."
+            sleep $((attempt * 2))
+          done
+
+          if [ "$success" != true ]; then
+            echo "::error::Klarte ikke å pushe state.json etter 5 forsøk."
+            exit 1
+          fi
