@@ -166,13 +166,6 @@ def page_is_empty(lines):
     blob = " ".join(lines).lower()
     return any(p in blob for p in NO_TICKETS_PHRASES)
 
-def content_signature(lines):
-    """Stabil signatur av sideinnholdet, brukt som siste utvei hvis
-    verken tall eller «ingen billetter»-tekst lar seg lese ut."""
-    blob = "\n".join(lines).lower()
-    blob = re.sub(r"\b\d{1,2}[:.]\d{2}\b", "", blob)  # klokkeslett varierer ikke, men vær grei
-    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
-
 # ─── Tilstandshåndtering ──────────────────────────────────────────────────────
 
 def load_state():
@@ -272,36 +265,34 @@ def check_url(url, state):
             }
         return
 
-    # Ingen tall lot seg lese ut. Da faller vi tilbake på om siden sier
-    # «ingen billetter» – forsvinner den teksten, har det skjedd noe.
+    # Ingen tall lot seg lese ut av siden. Da varsler vi KUN på en trygg
+    # overgang: siden sa tidligere eksplisitt «ingen billetter», og gjør det
+    # ikke lenger. Har vi aldri sett den teksten, vet vi ingenting om
+    # tilstanden – da logger vi bare, slik at en parser som ikke treffer
+    # ikke kan spamme telefonen med falske varsler.
     empty = page_is_empty(lines)
-    sig   = content_signature(lines)
-    was_empty = page_state.get("empty", True)
+    was_empty = page_state.get("empty")
     page_state["parse_ok"] = False
 
-    if not empty and (was_empty or page_state.get("signature") != sig):
+    if empty:
+        print("    📭  Siden sier at ingen billetter er ute.")
+    elif was_empty is True:
         send_notification(
             title="🎟️ Endring på videresalgssiden",
             message=(
-                "Fant ikke lenger «ingen billetter» på siden – det kan ha "
+                "Teksten «ingen billetter» er borte fra siden – det kan ha "
                 f"kommet billetter ut for salg.\n\n{url}"
             ),
             priority="urgent",
             tags="soccer,rotating_light",
             click=url,
         )
-    elif empty:
-        print("    📭  Siden sier fortsatt at ingen billetter er ute.")
     else:
-        print("    ℹ️  Klarte ikke lese antall, og ingen endring siden sist.")
+        print("    ⚠️  Fant verken billettall eller «ingen billetter»-tekst – "
+              "parseren må tilpasses sidestrukturen (kjør med DUMP_HTML=1). "
+              "Varsler ikke, for å unngå falske alarmer.")
 
-    if not page_state.get("parse_warning_sent") and not empty:
-        print("    ⚠️  Parseren fant ingen billettall – sjekk sidestrukturen "
-              "(kjør workflowen med DUMP_HTML=1).")
-        page_state["parse_warning_sent"] = True
-
-    page_state["empty"]     = empty
-    page_state["signature"] = sig
+    page_state["empty"] = empty
 
 def run_once(state):
     for url in RESALE_URLS:
