@@ -1,0 +1,86 @@
+name: Billettvarsler (fotball)
+
+on:
+  schedule:
+    # Hvert 5. minutt, hele døgnet – billetter kan legges ut når som helst.
+    # Med POLL_INTERVAL=60 sjekker hver kjøring fire ganger, så vi er innom
+    # siden omtrent én gang i minuttet.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      dump_html:
+        description: "Skriv ut sideinnholdet i loggen (feilsøking av parseren)"
+        type: boolean
+        default: false
+      match_filter:
+        description: "Varsle bare for kamper som inneholder denne teksten (f.eks. Portugal)"
+        type: string
+        default: ""
+
+concurrency:
+  group: billettvarsler
+  cancel-in-progress: false
+
+jobs:
+  sjekk-billetter:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Hent kode
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Sett opp Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sjekk videresalgssiden og send varsler
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          # Overstyr hvilke sider som overvåkes ved å sette RESALE_URLS som
+          # repository variable (Settings → Secrets and variables → Variables).
+          RESALE_URLS: ${{ vars.RESALE_URLS }}
+          MATCH_FILTER: ${{ inputs.match_filter || vars.MATCH_FILTER }}
+          POLL_INTERVAL: "60"
+          MAX_MINUTES: "4"
+          DUMP_HTML: ${{ inputs.dump_html && '1' || '' }}
+        run: python check_tickets.py
+
+      - name: Lagre tilstand (tickets_state.json) tilbake til repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Samme mønster som vinvarsleren: bygg alltid commiten rett oppå
+          # nyeste main i stedet for å pulle inn i historikken, og prøv på
+          # nytt hvis en parallell kjøring rakk å pushe i mellomtiden.
+          cp data/tickets_state.json /tmp/tickets_state.json.new
+
+          success=false
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/tickets_state.json.new data/tickets_state.json
+            git add data/tickets_state.json
+            if git diff --staged --quiet; then
+              echo "Ingen endringer i tickets_state.json å lagre."
+              success=true
+              break
+            fi
+            git commit -m "chore: oppdater billettilstand [skip ci]"
+            if git push origin HEAD:main; then
+              success=true
+              break
+            fi
+            echo "Push feilet (forsøk $attempt/5), prøver på nytt..."
+            sleep $((attempt * 2))
+          done
+
+          if [ "$success" != true ]; then
+            echo "::error::Klarte ikke å pushe tickets_state.json etter 5 forsøk."
+            exit 1
+          fi
