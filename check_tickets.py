@@ -98,6 +98,8 @@ BLOCK_PHRASES = [
 ]
 MAX_BLOCK_PAGE_LINES = 25
 
+_warmed = False
+
 def fetch_page(url):
     """Henter en side med cookies. Returnerer HTML-tekst, eller None ved feil."""
     global _warmed
