@@ -168,54 +168,60 @@ def html_to_lines(page):
 
 COUNT_RE   = re.compile(r"^(\d+)\s*(?:tickets?|billetter?)$", re.IGNORECASE)
 INLINE_RE  = re.compile(r"(\d+)\s*(?:tickets?|billetter?)\b", re.IGNORECASE)
-# En kamptittel ser ut som "Norway vs Denmark" / "Norge - Danmark"
-TITLE_RE   = re.compile(r"^(?!\d)[^\d]{2,60}?\s+(?:vs\.?|v|mot|[-–])\s+[^\d]{2,60}$",
-                        re.IGNORECASE)
-DATE_RE    = re.compile(r"\d{1,2}\s*\w{3,}", re.IGNORECASE)
-# Linjer som aldri er interessante som kamp-detaljer
-NOISE_RE   = re.compile(r"^(select one match\.?|guarantee|menu|logg inn|log in|"
-                        r"cart|handlekurv|home|hjem)$", re.IGNORECASE)
+# «vs» står på egen linje mellom lagnavnene, fordi flaggene ligger imellom
+VS_RE      = re.compile(r"^(?:vs\.?|v|mot|[-–])$", re.IGNORECASE)
+# Hele kampnavnet på én linje: "Norway vs Denmark"
+TITLE_RE   = re.compile(r"^(?!\d)[^\d]{2,60}?\s+(?:vs\.?|mot)\s+[^\d]{2,60}$", re.IGNORECASE)
+# "Thursday, 24 September 2026 - 20:45"
+DATETIME_RE = re.compile(r"\d{1,2}\s+\w+\s+\d{4}\s*[-–]\s*\d{1,2}[:.]\d{2}")
+VENUE_MARKER = re.compile(r"^(?:venue|arena|sted)\s*:?$", re.IGNORECASE)
+
+# Hvor mange linjer over antallet vi leter i etter kampnavn og detaljer.
+LOOKBACK = 15
+
+def _title_from(window):
+    """Setter sammen kampnavnet fra linjene rett over antallet.
+
+    På den ekte siden ligger lagnavn og «vs» på hver sin linje
+    (Norway / vs / Denmark), fordi flaggbildene skiller dem.
+    """
+    for j in range(len(window) - 2, 0, -1):
+        if VS_RE.match(window[j]):
+            return f"{window[j - 1]} vs {window[j + 1]}"
+    for line in reversed(window):
+        if TITLE_RE.match(line):
+            return line
+    return window[-1] if window else "Ukjent kamp"
+
+def _details_from(window):
+    """Plukker ut dato/klokkeslett og arena til bruk i varselteksten."""
+    details = []
+    for j, line in enumerate(window):
+        if DATETIME_RE.search(line):
+            details.append(line)
+        elif VENUE_MARKER.match(line) and j + 1 < len(window):
+            details.append(window[j + 1])
+    # behold rekkefølgen, men fjern duplikater
+    seen = set()
+    return [d for d in details if not (d in seen or seen.add(d))][:3]
 
 def parse_availability(lines):
-    """Plukker ut (kamp, detaljer, antall billetter) fra tekstlinjene.
+    """Finner (kamp, detaljer, antall billetter) for hver kamp på siden.
 
-    Vi går gjennom linjene i rekkefølge: siste linje som ser ut som en
-    kamptittel «eier» det neste antallet vi støter på. Linjene imellom
-    (dag, dato, arena) tas med som detaljer i varselet. Finner vi ikke noen
-    tittel, bruker vi de nærmeste linjene over antallet som merkelapp, slik
-    at et varsel aldri går tapt bare fordi markupen ser annerledes ut.
+    Antallet står som en egen linje («0 tickets» / «2 billetter»). Alt vi
+    trenger for å navngi kampen ligger i linjene rett over.
     """
     entries = []
-    current_title = None
-    details = []
-    recent = []
-
-    for line in lines:
+    for i, line in enumerate(lines):
         m = COUNT_RE.match(line) or (INLINE_RE.search(line) if len(line) <= 40 else None)
-        if m:
-            count = int(m.group(1))
-            title = current_title
-            if not title:
-                candidates = [l for l in recent if TITLE_RE.match(l)]
-                title = candidates[-1] if candidates else (
-                    details[0] if details else (recent[-1] if recent else "Ukjent kamp"))
-            entries.append({
-                "title": title,
-                "details": [d for d in details if d != title][:4],
-                "count": count,
-            })
-            details = []
-            recent = []
+        if not m:
             continue
-
-        recent = (recent + [line])[-6:]
-
-        if TITLE_RE.match(line) and not NOISE_RE.match(line):
-            current_title = line
-            details = []
-        elif not NOISE_RE.match(line) and (DATE_RE.search(line) or len(line) <= 60):
-            details.append(line)
-
+        window = lines[max(0, i - LOOKBACK):i]
+        entries.append({
+            "title": _title_from(window),
+            "details": _details_from(window),
+            "count": int(m.group(1)),
+        })
     return entries
 
 def page_is_empty(lines):

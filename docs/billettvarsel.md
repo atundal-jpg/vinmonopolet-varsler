@@ -13,8 +13,23 @@ forespørsler (se «Sperrer» under). `check_tickets.py` gjør derfor:
 
 1. Henter forsiden én gang for å få en gyldig økt-cookie, og deretter de
    overvåkede URL-ene (`RESALE_URLS`).
-2. Gjør HTML-en om til tekstlinjer og leser ut mønsteret
-   «kamptittel → dag/dato/arena → *N tickets*» (også norsk: *N billetter*).
+2. Gjør HTML-en om til tekstlinjer og leser ut billettallet per kamp. På den
+   ekte siden ligger lagnavnene på hver sin linje fordi flaggbildene skiller
+   dem, slik:
+
+   ```
+   Date and time:
+   Sunday, 27 September 2026 - 20:45
+   Venue:
+   Ullevaal Stadion
+   Norway
+   vs
+   Portugal
+   0 tickets
+   ```
+
+   Kampnavnet settes sammen fra linjene rundt «vs», og dato og arena tas med
+   i varselteksten.
 3. Sammenligner antallet med forrige kjøring (`data/tickets_state.json`).
 4. Sender push via ntfy når et antall går fra 0 til høyere – eller øker
    ytterligere, siden flere billetter ute er verdt å vite om.
@@ -65,13 +80,19 @@ hyppige som blir avvist.
 Vil du følge en annen kamp, finn `productId` i URL-en på kampvalgsiden og legg
 hele URL-en inn i `RESALE_URLS`.
 
-## Verifiser parseren mot ekte side
+## Tester
 
-Parseren er testet mot markup som tilsvarer det siden viser («Norway vs
-Denmark … 0 tickets»), men er ennå ikke bekreftet mot ekte HTML: første kjøring
-kom bare fram til cookie-veggen og venterommet. Kjør workflowen manuelt med
-**Dump html** huket av (Actions → Billettvarsler (fotball) → Run workflow) og se
-i loggen hva som faktisk kommer inn:
+`python3 tests/test_tickets.py` kjører parseren mot linjesekvensen fra en ekte
+kjøring (hentet fra Actions-loggen med `DUMP_HTML=1`), og sjekker at kampnavn og
+antall leses riktig, at sperresider ikke forveksles med innhold, og at varsel
+sendes én gang når billetter dukker opp – aldri på en side vi ikke kom gjennom
+til. Endrer siden struktur, er `REAL_LINES` i testen det første som skal
+oppdateres.
+
+## Feilsøking mot ekte side
+
+Kjør workflowen manuelt med **Dump html** huket av (Actions → Billettvarsler
+(fotball) → Run workflow) og se i loggen hva som faktisk kommer inn:
 
 - kampnavn og «N tickets» → parseren treffer, alt er i orden
 - «🚧 Kom ikke gjennom» → siden sperrer oss; senk frekvensen ytterligere
