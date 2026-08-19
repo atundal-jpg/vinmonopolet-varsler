@@ -26,6 +26,7 @@ import sys
 import time
 import urllib.request
 import urllib.error
+import urllib.parse
 from datetime import datetime
 
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "")
@@ -39,8 +40,20 @@ DEFAULT_URLS = [
     "https://resale.fotball.no/list/resaleProducts/?lang=en",
 ]
 
-RESALE_URLS   = [u.strip() for u in os.environ.get("RESALE_URLS", "").split(",") if u.strip()] \
-                or DEFAULT_URLS
+def with_english(url):
+    """Legger på lang=en. Uten den svarer siden på serverens språk, og da
+    varierer tekstene vi leter etter mellom kjøringer."""
+    parts = urllib.parse.urlsplit(url)
+    query = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+    if not any(k == "lang" for k, _ in query):
+        query.append(("lang", "en"))
+    return urllib.parse.urlunsplit(
+        parts._replace(query=urllib.parse.urlencode(query))
+    )
+
+RESALE_URLS   = [with_english(u.strip())
+                 for u in (os.environ.get("RESALE_URLS", "").split(",") or [])
+                 if u.strip()] or [with_english(u) for u in DEFAULT_URLS]
 MATCH_FILTER  = os.environ.get("MATCH_FILTER", "").strip().lower()
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "0") or 0)
 MAX_MINUTES   = int(os.environ.get("MAX_MINUTES", "0") or 0)
@@ -74,17 +87,16 @@ _opener = urllib.request.build_opener(
     urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
 )
 
-# Sider som betyr «vi fikk ikke se billettene» – ikke tolk dem som innhold.
+# Sperresider (cookie-vegg, venterom) er nesten tomme – noen få linjer. De ekte
+# sidene har over hundre. Ordene «waiting room» og «captcha» finnes også som
+# skjulte i18n-strenger i den ekte siden, så antall linjer må avgjøre, ikke
+# ordene alene.
 BLOCK_PHRASES = [
     "cookies appear to be disabled",
-    "informasjonskapsler",
     "waiting room",
-    "venterom",
     "captcha",
-    "queue-it",
 ]
-
-_warmed = False
+MAX_BLOCK_PAGE_LINES = 25
 
 def fetch_page(url):
     """Henter en side med cookies. Returnerer HTML-tekst, eller None ved feil."""
@@ -118,6 +130,8 @@ def _fetch(url):
 def blocked_by(lines):
     """Returnerer hvilken sperre siden viser (cookie-vegg, venterom, captcha),
     eller None hvis vi faktisk fikk se innhold."""
+    if len(lines) > MAX_BLOCK_PAGE_LINES:
+        return None
     blob = " ".join(lines).lower()
     for phrase in BLOCK_PHRASES:
         if phrase in blob:
@@ -275,8 +289,8 @@ def check_url(url, state):
     page_state.pop("blocked", None)
 
     if DUMP_HTML:
-        print("    ── sideinnhold (første 120 linjer) ──")
-        for line in lines[:120]:
+        print(f"    ── sideinnhold ({len(lines)} linjer) ──")
+        for line in lines[:200]:
             print(f"       {line}")
         print("    ────────────────────────────────────")
 
