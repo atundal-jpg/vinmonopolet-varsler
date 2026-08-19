@@ -2,11 +2,11 @@ name: Billettvarsler (fotball)
 
 on:
   schedule:
-    # Hvert 15. minutt, hele døgnet. Siden har venterom/captcha som slår inn
-    # når den får mange forespørsler tett – da ser vi ingenting i det hele
-    # tatt. Sjeldnere sjekker som slipper gjennom er verdt mer enn hyppige
-    # sjekker som blir avvist.
-    - cron: "*/15 * * * *"
+    # Hvert 5. minutt, hele døgnet – raskeste faste intervall Actions tilbyr.
+    # Hver kjøring gjør én sjekk per side med egen økt-cookie; det slipper
+    # gjennom. Sperrer siden likevel, pauser skriptet seg selv (10, 20, 40 min
+    # … opp til en time) i stedet for å presse på.
+    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       dump_html:

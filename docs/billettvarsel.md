@@ -61,11 +61,23 @@ og gjør det ikke lenger. Har vi aldri sett den teksten, logges det i stedet for
 
 ## Kjøring
 
-GitHub Actions-workflowen `Billettvarsler (fotball)` kjører hvert 15. minutt
-hele døgnet, med én sjekk per kjøring. Tettere polling ble prøvd (hvert minutt),
-og resultatet var at siden svarte med venterom og captcha i stedet for
-billetter – sjeldnere sjekker som slipper gjennom gir altså bedre varsling enn
-hyppige som blir avvist.
+GitHub Actions-workflowen `Billettvarsler (fotball)` kjører hvert 5. minutt hele
+døgnet – raskeste faste intervall Actions tilbyr – med én sjekk per side per
+kjøring, og noen sekunders tilfeldig slark i starttidspunktet.
+
+Hvorfor akkurat 5 minutter: første forsøk polte hvert minutt *uten* økt-cookie,
+og da svarte siden med venterom og captcha i stedet for billetter. Etter at
+cookie-håndteringen kom på plass har kjøringer med 4–6 minutters mellomrom
+sluppet gjennom hver gang. Vil du prøve tettere, må det gjøres med en loop inne
+i kjøringen (`POLL_INTERVAL`), og da bør du følge med i loggen: dukker det opp
+«🚧 Kom ikke gjennom», er du over grensen.
+
+### Tilbaketrekking
+
+Sperrer siden oss likevel, pauser varsleren *seg selv* for den siden – 10
+minutter første gang, så 20, 40 og opp til en time – og gjenopptar automatisk
+når en sjekk slipper gjennom. Frekvensen regulerer seg altså selv mot det
+siden tåler, uten at noen må gjette.
 
 ## Innstillinger
 

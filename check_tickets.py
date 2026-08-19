@@ -21,13 +21,14 @@ import html
 import http.cookiejar
 import json
 import os
+import random
 import re
 import sys
 import time
 import urllib.request
 import urllib.error
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timedelta
 
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "")
 NTFY_URL   = "https://ntfy.sh"
@@ -273,28 +274,53 @@ def event_key(url, entry):
     base = f"{url}|{entry['title']}|{' '.join(entry['details'][:2])}"
     return hashlib.sha1(base.encode("utf-8")).hexdigest()[:12]
 
+# Blir vi sperret, dobles pausen for hvert forsøk: 10, 20, 40 min … opp til en
+# time. Da finner varsleren selv en frekvens siden tåler, i stedet for å ligge
+# og banke på en dør som er lukket.
+BACKOFF_START_MINUTES = 10
+BACKOFF_MAX_MINUTES   = 60
+
+def backoff_until(strikes):
+    minutes = min(BACKOFF_START_MINUTES * 2 ** (strikes - 1), BACKOFF_MAX_MINUTES)
+    return datetime.now() + timedelta(minutes=minutes), minutes
+
 def check_url(url, state):
+    page_state = state["pages"].setdefault(url, {})
+
+    paused_until = page_state.get("paused_until")
+    if paused_until and datetime.now() < datetime.fromisoformat(paused_until):
+        print(f"    ⏸️  Hopper over {url}\n        (pauset til "
+              f"{paused_until[:16].replace('T', ' ')} etter sperre)")
+        return
+
     print(f"    🔍  Sjekker: {url}")
     page = fetch_page(url)
     if page is None:
         return
 
     lines = html_to_lines(page)
-    page_state = state["pages"].setdefault(url, {})
 
     block = blocked_by(lines)
     if block:
         # Venterom, captcha eller cookie-vegg: vi vet ingenting om billettene.
-        # Da varsler vi ikke – verken om billetter eller om «endring».
+        # Da varsler vi ikke – verken om billetter eller om «endring» – og vi
+        # trekker oss tilbake en stund, så vi ikke maser oss dypere inn i køen.
+        strikes = page_state.get("strikes", 0) + 1
+        until, minutes = backoff_until(strikes)
         print(f"    🚧  Kom ikke gjennom til billettsiden ({block}). "
-              "Hopper over uten å varsle.")
-        page_state["blocked"] = block
-        page_state["blocked_at"] = datetime.now().isoformat()
+              f"Pauser {minutes} min uten å varsle.")
+        page_state["blocked"]      = block
+        page_state["blocked_at"]   = datetime.now().isoformat()
+        page_state["strikes"]      = strikes
+        page_state["paused_until"] = until.isoformat()
         if DUMP_HTML:
             for line in lines[:40]:
                 print(f"       {line}")
         return
-    page_state.pop("blocked", None)
+
+    # Vi kom gjennom: nullstill tilbaketrekkingen.
+    for key in ("blocked", "blocked_at", "strikes", "paused_until"):
+        page_state.pop(key, None)
 
     if DUMP_HTML:
         print(f"    ── sideinnhold ({len(lines)} linjer) ──")
@@ -381,6 +407,10 @@ def check_url(url, state):
     page_state["empty"] = empty
 
 def run_once(state):
+    jitter = random.randint(0, 40)
+    if jitter and not DUMP_HTML:
+        print(f"⏱️   Venter {jitter}s før sjekk (jevner ut trafikken).")
+        time.sleep(jitter)
     for i, url in enumerate(RESALE_URLS):
         if i:
             time.sleep(5)  # ikke fyr av forespørslene i samme sekund

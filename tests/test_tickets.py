@@ -121,6 +121,46 @@ check("stille på tom videresalgsliste",
 check("stille når vi bare møter sperresider",
       notifications_for([WAITING_ROOM_LINES, COOKIE_WALL_LINES, WAITING_ROOM_LINES]), [])
 
+print("\nTilbaketrekking ved sperre:")
+
+def backoff_scenario():
+    """Sperret side skal pauses, hoppes over, og gjenopptas etter pausen."""
+    real_lines, real_fetch, real_send = ct.html_to_lines, ct.fetch_page, ct.send_notification
+    ct.fetch_page = lambda url: "<html/>"
+    ct.send_notification = lambda *a, **k: None
+    state = {"events": {}, "pages": {}}
+    url = "https://resale.fotball.no/test"
+    try:
+        ct.html_to_lines = lambda page: WAITING_ROOM_LINES
+        ct.check_url(url, state)
+        first_pause = state["pages"][url].get("paused_until")
+
+        # Neste kjøring mens pausen løper: siden skal ikke hentes i det hele tatt
+        fetched = []
+        ct.fetch_page = lambda u: fetched.append(u) or "<html/>"
+        ct.check_url(url, state)
+        skipped_while_paused = not fetched
+
+        # Etter at pausen er over slipper vi til igjen – og en vellykket sjekk
+        # skal nullstille tilbaketrekkingen
+        state["pages"][url]["paused_until"] = (
+            ct.datetime.now() - ct.timedelta(minutes=1)).isoformat()
+        ct.html_to_lines = lambda page: REAL_LINES
+        ct.check_url(url, state)
+        cleared = "paused_until" not in state["pages"][url] and \
+                  "strikes" not in state["pages"][url]
+    finally:
+        ct.html_to_lines, ct.fetch_page, ct.send_notification = (
+            real_lines, real_fetch, real_send)
+    return bool(first_pause), skipped_while_paused, cleared
+
+paused, skipped, cleared = backoff_scenario()
+check("sperre gir pause", paused, True)
+check("henter ikke siden mens pausen løper", skipped, True)
+check("vellykket sjekk nullstiller pausen", cleared, True)
+check("pausen dobles for hvert forsøk",
+      [ct.backoff_until(n)[1] for n in (1, 2, 3, 4, 9)], [10, 20, 40, 60, 60])
+
 if failures:
     print("\n❌  " + f"{len(failures)} test(er) feilet:")
     for f in failures:
