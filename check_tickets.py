@@ -18,6 +18,7 @@ Miljøvariabler:
 """
 import hashlib
 import html
+import http.cookiejar
 import json
 import os
 import re
@@ -47,6 +48,8 @@ DUMP_HTML     = os.environ.get("DUMP_HTML", "") == "1"
 
 STATE_FILE = "data/tickets_state.json"
 
+HOME_URL = "https://resale.fotball.no/"
+
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
@@ -64,8 +67,37 @@ NO_TICKETS_PHRASES = [
 
 # ─── Henting ──────────────────────────────────────────────────────────────────
 
+# Siden krever en økt-cookie (JSESSIONID) for å svare med ekte innhold – uten
+# den serverer den bare «Cookies appear to be disabled». Vi holder derfor på
+# cookies gjennom hele kjøringen, akkurat som en vanlig nettleser.
+_opener = urllib.request.build_opener(
+    urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+)
+
+# Sider som betyr «vi fikk ikke se billettene» – ikke tolk dem som innhold.
+BLOCK_PHRASES = [
+    "cookies appear to be disabled",
+    "informasjonskapsler",
+    "waiting room",
+    "venterom",
+    "captcha",
+    "queue-it",
+]
+
+_warmed = False
+
 def fetch_page(url):
-    """Henter en side. Returnerer HTML-tekst, eller None ved feil."""
+    """Henter en side med cookies. Returnerer HTML-tekst, eller None ved feil."""
+    global _warmed
+    if not _warmed:
+        # Hent forsiden én gang først, slik at vi har en gyldig økt før vi ber
+        # om billettsiden. Uten dette svarer SecuTix med cookie-advarselen.
+        _fetch(HOME_URL)
+        _warmed = True
+        time.sleep(2)
+    return _fetch(url)
+
+def _fetch(url):
     req = urllib.request.Request(url, headers={
         "User-Agent": USER_AGENT,
         "Accept": "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
@@ -73,7 +105,7 @@ def fetch_page(url):
         "Referer": "https://resale.fotball.no/",
     })
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with _opener.open(req, timeout=20) as resp:
             raw = resp.read()
             charset = resp.headers.get_content_charset() or "utf-8"
             return raw.decode(charset, errors="replace")
@@ -81,6 +113,15 @@ def fetch_page(url):
         print(f"    ⚠️  HTTP {e.code} for {url}")
     except Exception as e:
         print(f"    ⚠️  Feil ved henting av {url}: {e}")
+    return None
+
+def blocked_by(lines):
+    """Returnerer hvilken sperre siden viser (cookie-vegg, venterom, captcha),
+    eller None hvis vi faktisk fikk se innhold."""
+    blob = " ".join(lines).lower()
+    for phrase in BLOCK_PHRASES:
+        if phrase in blob:
+            return phrase
     return None
 
 # ─── Parsing ──────────────────────────────────────────────────────────────────
@@ -217,6 +258,22 @@ def check_url(url, state):
         return
 
     lines = html_to_lines(page)
+    page_state = state["pages"].setdefault(url, {})
+
+    block = blocked_by(lines)
+    if block:
+        # Venterom, captcha eller cookie-vegg: vi vet ingenting om billettene.
+        # Da varsler vi ikke – verken om billetter eller om «endring».
+        print(f"    🚧  Kom ikke gjennom til billettsiden ({block}). "
+              "Hopper over uten å varsle.")
+        page_state["blocked"] = block
+        page_state["blocked_at"] = datetime.now().isoformat()
+        if DUMP_HTML:
+            for line in lines[:40]:
+                print(f"       {line}")
+        return
+    page_state.pop("blocked", None)
+
     if DUMP_HTML:
         print("    ── sideinnhold (første 120 linjer) ──")
         for line in lines[:120]:
@@ -224,7 +281,6 @@ def check_url(url, state):
         print("    ────────────────────────────────────")
 
     entries = parse_availability(lines)
-    page_state = state["pages"].setdefault(url, {})
 
     if entries:
         page_state["parse_ok"] = True
@@ -295,7 +351,9 @@ def check_url(url, state):
     page_state["empty"] = empty
 
 def run_once(state):
-    for url in RESALE_URLS:
+    for i, url in enumerate(RESALE_URLS):
+        if i:
+            time.sleep(5)  # ikke fyr av forespørslene i samme sekund
         check_url(url, state)
 
 # ─── Main ─────────────────────────────────────────────────────────────────────

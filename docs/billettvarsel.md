@@ -6,11 +6,13 @@ videresalg på NFFs offisielle plattform.
 ## Hvordan det virker
 
 `resale.fotball.no` kjører på SecuTix, og sidene er **server-rendret HTML**.
-Det betyr at antallet billetter per kamp ligger rett i markupen som hentes –
-ingen JavaScript, ingen innlogging og ingen API-nøkkel er nødvendig for å lese
-den. `check_tickets.py` gjør derfor:
+Antallet billetter per kamp ligger altså rett i markupen – ingen JavaScript,
+ingen innlogging og ingen API-nøkkel trengs for å lese den. Men siden krever en
+økt-cookie, og den har et **venterom med captcha** som slår inn ved hyppige
+forespørsler (se «Sperrer» under). `check_tickets.py` gjør derfor:
 
-1. Henter de overvåkede URL-ene (`RESALE_URLS`).
+1. Henter forsiden én gang for å få en gyldig økt-cookie, og deretter de
+   overvåkede URL-ene (`RESALE_URLS`).
 2. Gjør HTML-en om til tekstlinjer og leser ut mønsteret
    «kamptittel → dag/dato/arena → *N tickets*» (også norsk: *N billetter*).
 3. Sammenligner antallet med forrige kjøring (`data/tickets_state.json`).
@@ -24,20 +26,31 @@ Standard-URL-ene er:
 - den generelle lista over alt som ligger ute
   (`/list/resaleProducts/?lang=en`)
 
+### Sperrer: cookie-vegg, venterom og captcha
+
+Får vi ikke se billettsiden – fordi vi mangler økt-cookie, eller fordi siden
+setter oss i venterom med captcha – logges det og kjøringen avsluttes **uten å
+varsle**. Vi vet da ingenting om billettene, og et varsel ville vært en gjetning.
+
+Captchaen omgås ikke. Den er sidens måte å si at den ikke vil ha rask
+automatisk trafikk, og det respekteres: sjekkene er derfor lagt til hvert 15.
+minutt, med bare én forespørsel per side per kjøring. Ser du mange
+«🚧 Kom ikke gjennom»-linjer i loggen, er det frekvensen som må ned, ikke opp.
+
 ### Fallback hvis markupen endrer seg
 
-Klarer ikke parseren å lese ut noen tall, faller den tilbake på å se etter
-«ingen billetter»-teksten på siden. Forsvinner den teksten, sendes et varsel om
-at det *kan* ha kommet billetter ut, slik at en endring i sidestrukturen aldri
-fører til at et varsel går tapt i stillhet.
+Klarer ikke parseren å lese ut noen tall på en side vi faktisk kom gjennom til,
+varsles det bare ved en reell overgang: siden sa eksplisitt «ingen billetter»,
+og gjør det ikke lenger. Har vi aldri sett den teksten, logges det i stedet for
+å varsle – en parser som ikke treffer skal ikke kunne sende falske alarmer.
 
 ## Kjøring
 
-GitHub Actions-workflowen `Billettvarsler (fotball)` kjører hvert 5. minutt hele
-døgnet, og hver kjøring sjekker fire ganger med ett minutts mellomrom
-(`POLL_INTERVAL=60`, `MAX_MINUTES=4`). I praksis er vi altså innom siden omtrent
-én gang i minuttet. Skru ned frekvensen ved å sette `POLL_INTERVAL: "0"` i
-workflowen.
+GitHub Actions-workflowen `Billettvarsler (fotball)` kjører hvert 15. minutt
+hele døgnet, med én sjekk per kjøring. Tettere polling ble prøvd (hvert minutt),
+og resultatet var at siden svarte med venterom og captcha i stedet for
+billetter – sjeldnere sjekker som slipper gjennom gir altså bedre varsling enn
+hyppige som blir avvist.
 
 ## Innstillinger
 
@@ -46,25 +59,28 @@ workflowen.
 | `NTFY_TOPIC` (secret) | ntfy-topic det varsles til. Samme som vinvarsleren. |
 | `RESALE_URLS` (variable) | Kommaseparerte URL-er som overvåkes. Tom = standardene over. |
 | `MATCH_FILTER` (variable/input) | Varsle bare for kamper som inneholder teksten, f.eks. `Portugal`. |
-| `POLL_INTERVAL` / `MAX_MINUTES` | Sekunder mellom sjekker inne i én kjøring, og hvor lenge kjøringen looper. |
+| `POLL_INTERVAL` / `MAX_MINUTES` | Valgfri loop inne i én kjøring (sekunder / minutter). Står på 0 – siden tåler ikke tett polling. |
 | `DUMP_HTML` | `1` skriver ut sideinnholdet i loggen. |
 
 Vil du følge en annen kamp, finn `productId` i URL-en på kampvalgsiden og legg
 hele URL-en inn i `RESALE_URLS`.
 
-## Første kjøring: verifiser parseren
+## Verifiser parseren mot ekte side
 
 Parseren er testet mot markup som tilsvarer det siden viser («Norway vs
-Denmark … 0 tickets»), men den er ikke kjørt mot den ekte siden – nettverket i
-utviklingsmiljøet har ikke tilgang til `resale.fotball.no`. Kjør derfor
-workflowen manuelt én gang med **Dump html** huket av (Actions → Billettvarsler
-(fotball) → Run workflow), og se i loggen at kampene og antallene listes ut som
-forventet. Ser utskriften annerledes ut, er det `parse_availability()` i
-`check_tickets.py` som må justeres – linjene i loggen er nøyaktig det funksjonen
-får inn.
+Denmark … 0 tickets»), men er ennå ikke bekreftet mot ekte HTML: første kjøring
+kom bare fram til cookie-veggen og venterommet. Kjør workflowen manuelt med
+**Dump html** huket av (Actions → Billettvarsler (fotball) → Run workflow) og se
+i loggen hva som faktisk kommer inn:
+
+- kampnavn og «N tickets» → parseren treffer, alt er i orden
+- «🚧 Kom ikke gjennom» → siden sperrer oss; senk frekvensen ytterligere
+- andre linjer → `parse_availability()` må tilpasses; loggen viser nøyaktig de
+  linjene funksjonen får inn
 
 ## Vær grei mot siden
 
-Sjekk omtrent én gang i minuttet er nok til å rekke en billett, og lite nok til
-å ikke belaste siden. Ikke skru frekvensen vesentlig opp – NFFs vilkår gjelder
-uansett, og varselet er ment å gi deg beskjed, ikke å kapre billetter automatisk.
+Venterommet og captchaen er sidens grense for automatisk trafikk. Varsleren
+respekterer den: den løser ingen captcha, den prøver ikke å komme rundt
+venterommet, og den sjekker sjelden nok til å ikke belaste siden. Varselet er
+ment å gi *deg* beskjed om å gå inn og kjøpe – ikke å kapre billetter automatisk.

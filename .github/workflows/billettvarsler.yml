@@ -2,10 +2,11 @@ name: Billettvarsler (fotball)
 
 on:
   schedule:
-    # Hvert 5. minutt, hele døgnet – billetter kan legges ut når som helst.
-    # Med POLL_INTERVAL=60 sjekker hver kjøring fire ganger, så vi er innom
-    # siden omtrent én gang i minuttet.
-    - cron: "*/5 * * * *"
+    # Hvert 15. minutt, hele døgnet. Siden har venterom/captcha som slår inn
+    # når den får mange forespørsler tett – da ser vi ingenting i det hele
+    # tatt. Sjeldnere sjekker som slipper gjennom er verdt mer enn hyppige
+    # sjekker som blir avvist.
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       dump_html:
@@ -45,8 +46,8 @@ jobs:
           # repository variable (Settings → Secrets and variables → Variables).
           RESALE_URLS: ${{ vars.RESALE_URLS }}
           MATCH_FILTER: ${{ inputs.match_filter || vars.MATCH_FILTER }}
-          POLL_INTERVAL: "60"
-          MAX_MINUTES: "4"
+          POLL_INTERVAL: "0"
+          MAX_MINUTES: "0"
           DUMP_HTML: ${{ inputs.dump_html && '1' || '' }}
         run: python check_tickets.py
 

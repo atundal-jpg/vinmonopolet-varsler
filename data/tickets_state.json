@@ -1,17 +1,4 @@
 {
   "events": {},
-  "pages": {
-    "https://resale.fotball.no/selection/event/date?productId=10229739619905&checkResaleAvailability=true": {
-      "parse_ok": false,
-      "parse_warning_sent": true,
-      "empty": false,
-      "signature": "5f766ed7d4c4bbfb"
-    },
-    "https://resale.fotball.no/list/resaleProducts/?lang=en": {
-      "parse_ok": false,
-      "parse_warning_sent": true,
-      "empty": false,
-      "signature": "5f766ed7d4c4bbfb"
-    }
-  }
+  "pages": {}
 }
