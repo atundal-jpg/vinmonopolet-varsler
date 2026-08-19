@@ -1,4 +1,13 @@
 {
   "events": {},
-  "pages": {}
+  "pages": {
+    "https://resale.fotball.no/selection/event/date?productId=10229739619905&checkResaleAvailability=true": {
+      "blocked": "venterom",
+      "blocked_at": "2026-08-19T13:28:20.830347"
+    },
+    "https://resale.fotball.no/list/resaleProducts/?lang=en": {
+      "blocked": "waiting room",
+      "blocked_at": "2026-08-19T13:28:26.526453"
+    }
+  }
 }
