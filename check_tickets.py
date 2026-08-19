@@ -306,12 +306,14 @@ def check_url(url, state):
 
     if entries:
         page_state["parse_ok"] = True
+        seen_keys = set()
         for entry in entries:
             title = entry["title"]
+            key   = event_key(url, entry)
+            seen_keys.add(key)
             if MATCH_FILTER and MATCH_FILTER not in title.lower():
                 continue
 
-            key   = event_key(url, entry)
             prev  = state["events"].get(key, {})
             count = entry["count"]
             was   = prev.get("count", 0)
@@ -341,6 +343,12 @@ def check_url(url, state):
                 "url": url,
                 "last_checked": datetime.now().isoformat(),
             }
+
+        # Rydd bort kamper vi ikke lenger finner på siden, så tilstandsfila
+        # ikke fylles opp av oppføringer som aldri kan bli aktuelle igjen.
+        for old_key, old in list(state["events"].items()):
+            if old.get("url") == url and old_key not in seen_keys:
+                del state["events"][old_key]
         return
 
     # Ingen tall lot seg lese ut av siden. Da varsler vi KUN på en trygg
@@ -390,6 +398,9 @@ def main():
         print(f"🎯  Filter: varsler bare for kamper som inneholder '{MATCH_FILTER}'.\n")
 
     state = load_state()
+    state["pages"] = {u: v for u, v in state["pages"].items() if u in RESALE_URLS}
+    state["events"] = {k: v for k, v in state["events"].items()
+                       if v.get("url") in RESALE_URLS}
     deadline = time.time() + MAX_MINUTES * 60 if MAX_MINUTES else 0
 
     while True:
