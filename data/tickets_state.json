@@ -1,13 +1,42 @@
 {
-  "events": {},
+  "events": {
+    "784f860cdf0d": {
+      "title": "Performance selection [Mens Nations League] - Norges Fotballforbund",
+      "details": [
+        "Mens Nations League",
+        "Mens Nations League",
+        "Ullevaal Stadion",
+        "Mens Nations League"
+      ],
+      "count": 0,
+      "url": "https://resale.fotball.no/selection/event/date?productId=10229739619905&checkResaleAvailability=true&lang=en",
+      "last_checked": "2026-08-19T13:34:05.030732"
+    },
+    "be9e36426f84": {
+      "title": "Performance selection [Mens Nations League] - Norges Fotballforbund",
+      "details": [
+        "J2",
+        "Day 2",
+        "Date and time:",
+        "Sunday, 27 September 2026 - 20:45"
+      ],
+      "count": 0,
+      "url": "https://resale.fotball.no/selection/event/date?productId=10229739619905&checkResaleAvailability=true&lang=en",
+      "last_checked": "2026-08-19T13:34:05.030747"
+    }
+  },
   "pages": {
     "https://resale.fotball.no/selection/event/date?productId=10229739619905&checkResaleAvailability=true": {
       "blocked": "venterom",
       "blocked_at": "2026-08-19T13:28:20.830347"
     },
     "https://resale.fotball.no/list/resaleProducts/?lang=en": {
-      "blocked": "waiting room",
-      "blocked_at": "2026-08-19T13:28:26.526453"
+      "blocked_at": "2026-08-19T13:28:26.526453",
+      "parse_ok": false,
+      "empty": true
+    },
+    "https://resale.fotball.no/selection/event/date?productId=10229739619905&checkResaleAvailability=true&lang=en": {
+      "parse_ok": true
     }
   }
 }
