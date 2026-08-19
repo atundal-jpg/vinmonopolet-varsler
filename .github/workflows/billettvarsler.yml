@@ -2,10 +2,11 @@ name: Billettvarsler (fotball)
 
 on:
   schedule:
-    # Hvert 5. minutt, hele døgnet – raskeste faste intervall Actions tilbyr.
-    # Hver kjøring gjør én sjekk per side med egen økt-cookie; det slipper
-    # gjennom. Sperrer siden likevel, pauser skriptet seg selv (10, 20, 40 min
-    # … opp til en time) i stedet for å presse på.
+    # GitHub struper planlagte kjøringer kraftig: vinvarslerens "*/5" starter
+    # i praksis bare hver 30.-60. minutt. Vi ber derfor om hvert 5. minutt,
+    # men lener oss ikke på at det skjer – hver kjøring looper i stedet i
+    # inntil 50 minutter og sjekker hvert 5. minutt selv (POLL_INTERVAL /
+    # MAX_MINUTES nedenfor). Da gir én kjøring dekning helt til neste starter.
     - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
@@ -25,6 +26,8 @@ concurrency:
 jobs:
   sjekk-billetter:
     runs-on: ubuntu-latest
+    # Litt over looplengden, så en hengende kjøring ikke blokkerer neste.
+    timeout-minutes: 55
     permissions:
       contents: write
 
@@ -46,8 +49,9 @@ jobs:
           # repository variable (Settings → Secrets and variables → Variables).
           RESALE_URLS: ${{ vars.RESALE_URLS }}
           MATCH_FILTER: ${{ inputs.match_filter || vars.MATCH_FILTER }}
-          POLL_INTERVAL: "0"
-          MAX_MINUTES: "0"
+          # Sjekk hvert 5. minutt inne i kjøringen, i inntil 50 minutter.
+          POLL_INTERVAL: ${{ inputs.dump_html && '0' || '300' }}
+          MAX_MINUTES: ${{ inputs.dump_html && '0' || '50' }}
           DUMP_HTML: ${{ inputs.dump_html && '1' || '' }}
         run: python check_tickets.py
 

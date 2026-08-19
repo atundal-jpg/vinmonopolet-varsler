@@ -61,9 +61,15 @@ og gjør det ikke lenger. Har vi aldri sett den teksten, logges det i stedet for
 
 ## Kjøring
 
-GitHub Actions-workflowen `Billettvarsler (fotball)` kjører hvert 5. minutt hele
-døgnet – raskeste faste intervall Actions tilbyr – med én sjekk per side per
-kjøring, og noen sekunders tilfeldig slark i starttidspunktet.
+GitHub Actions-workflowen `Billettvarsler (fotball)` ber om å bli startet hvert
+5. minutt, men **GitHub struper planlagte kjøringer**: vinvarslerens `*/5` i
+samme repo starter i praksis bare hver 30.–60. minutt. Timeplanen alene gir
+altså ikke sjekk hvert 5. minutt, uansett hva cron-linjen sier.
+
+Løsningen er at hver kjøring dekker tiden fram til neste selv: den looper i
+inntil 50 minutter og sjekker hvert 5. minutt (`POLL_INTERVAL=300`,
+`MAX_MINUTES=50`), med noen sekunders tilfeldig slark i starttidspunktet.
+`concurrency`-gruppa sørger for at bare én kjøring går om gangen.
 
 Hvorfor akkurat 5 minutter: første forsøk polte hvert minutt *uten* økt-cookie,
 og da svarte siden med venterom og captcha i stedet for billetter. Etter at
