@@ -286,6 +286,45 @@ def backoff_until(strikes):
     minutes = min(BACKOFF_START_MINUTES * 2 ** (strikes - 1), BACKOFF_MAX_MINUTES)
     return datetime.now() + timedelta(minutes=minutes), minutes
 
+# Klarer vi ikke se siden over lengre tid, er stillhet misvisende: det ser
+# likt ut enten det ikke finnes billetter eller vi er stengt ute. Da sier vi
+# fra én gang, og gjentar tidligst etter to timer.
+WATCHDOG_AFTER_MINUTES = 30
+WATCHDOG_REPEAT_HOURS  = 2
+
+def register_block(url, page_state, reason):
+    """Håndterer at vi ikke kom gjennom: pause, telling og vaktbikkje."""
+    now     = datetime.now()
+    strikes = page_state.get("strikes", 0) + 1
+    until, minutes = backoff_until(strikes)
+    print(f"    🚧  Kom ikke gjennom til billettsiden ({reason}). "
+          f"Pauser {minutes} min uten å varsle om billetter.")
+    page_state["blocked"]      = reason
+    page_state["blocked_at"]   = now.isoformat()
+    page_state["strikes"]      = strikes
+    page_state["paused_until"] = until.isoformat()
+    page_state.setdefault("blocked_since", now.isoformat())
+
+    down = (now - datetime.fromisoformat(page_state["blocked_since"])).total_seconds() / 60
+    if down < WATCHDOG_AFTER_MINUTES:
+        return
+
+    sent = page_state.get("watchdog_sent_at")
+    if sent and (now - datetime.fromisoformat(sent)).total_seconds() < WATCHDOG_REPEAT_HOURS * 3600:
+        return
+
+    send_notification(
+        title="Billettvarsleren ser ikke siden",
+        message=(
+            f"Kommer ikke gjennom til videresalgssiden ({reason}) – "
+            f"i {int(down)} minutter nå.\n\n"
+            "Varsleren prøver videre av seg selv, men den kan ikke se billetter "
+            f"så lenge dette varer. Sjekk manuelt hvis det haster:\n{url}"
+        ),
+        priority="default", tags="warning", click=url,
+    )
+    page_state["watchdog_sent_at"] = now.isoformat()
+
 def check_url(url, state):
     page_state = state["pages"].setdefault(url, {})
 
@@ -298,6 +337,8 @@ def check_url(url, state):
     print(f"    🔍  Sjekker: {url}")
     page = fetch_page(url)
     if page is None:
+        # Nettverksfeil eller HTTP-feil: vi vet like lite som ved en sperre.
+        register_block(url, page_state, "ingen svar fra siden")
         return
 
     lines = html_to_lines(page)
@@ -307,21 +348,15 @@ def check_url(url, state):
         # Venterom, captcha eller cookie-vegg: vi vet ingenting om billettene.
         # Da varsler vi ikke – verken om billetter eller om «endring» – og vi
         # trekker oss tilbake en stund, så vi ikke maser oss dypere inn i køen.
-        strikes = page_state.get("strikes", 0) + 1
-        until, minutes = backoff_until(strikes)
-        print(f"    🚧  Kom ikke gjennom til billettsiden ({block}). "
-              f"Pauser {minutes} min uten å varsle.")
-        page_state["blocked"]      = block
-        page_state["blocked_at"]   = datetime.now().isoformat()
-        page_state["strikes"]      = strikes
-        page_state["paused_until"] = until.isoformat()
+        register_block(url, page_state, block)
         if DUMP_HTML:
             for line in lines[:40]:
                 print(f"       {line}")
         return
 
     # Vi kom gjennom: nullstill tilbaketrekkingen.
-    for key in ("blocked", "blocked_at", "strikes", "paused_until"):
+    for key in ("blocked", "blocked_at", "strikes", "paused_until",
+                "blocked_since", "watchdog_sent_at"):
         page_state.pop(key, None)
 
     if DUMP_HTML:

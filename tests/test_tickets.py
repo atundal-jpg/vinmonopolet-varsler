@@ -161,6 +161,67 @@ check("vellykket sjekk nullstiller pausen", cleared, True)
 check("pausen dobles for hvert forsøk",
       [ct.backoff_until(n)[1] for n in (1, 2, 3, 4, 9)], [5, 10, 20, 30, 30])
 
+print("\nVaktbikkje når vi ikke ser siden:")
+
+def watchdog_scenario():
+    """Sperret lenge nok skal gi ETT varsel, ikke ett per forsøk."""
+    sent = []
+    real_lines, real_fetch, real_send = ct.html_to_lines, ct.fetch_page, ct.send_notification
+    ct.send_notification = lambda title, message, priority="high", tags="", click=None: \
+        sent.append(title)
+    ct.fetch_page = lambda url: "<html/>"
+    ct.html_to_lines = lambda page: WAITING_ROOM_LINES
+    url = "https://resale.fotball.no/test"
+    state = {"events": {}, "pages": {}}
+
+    def unpause_and_rewind(minutes_down):
+        ps = state["pages"][url]
+        ps.pop("paused_until", None)
+        ps["blocked_since"] = (ct.datetime.now() -
+                               ct.timedelta(minutes=minutes_down)).isoformat()
+
+    try:
+        ct.check_url(url, state)          # første sperre
+        after_first = list(sent)
+
+        unpause_and_rewind(10)            # sperret i 10 min – for tidlig
+        ct.check_url(url, state)
+        after_ten = list(sent)
+
+        unpause_and_rewind(35)            # sperret i 35 min – nå sier vi fra
+        ct.check_url(url, state)
+        after_thirtyfive = list(sent)
+
+        unpause_and_rewind(40)            # fortsatt nede – ikke mas
+        ct.check_url(url, state)
+        after_forty = list(sent)
+
+        # Nettverksfeil skal telle som sperre, ikke ignoreres i stillhet
+        net_state = {"events": {}, "pages": {}}
+        ct.fetch_page = lambda url: None
+        ct.check_url(url, net_state)
+        net_blocked = net_state["pages"][url].get("blocked")
+
+        # Kommer vi gjennom igjen, nullstilles klokka
+        ct.fetch_page = lambda url: "<html/>"
+        ct.html_to_lines = lambda page: REAL_LINES
+        state["pages"][url].pop("paused_until", None)
+        ct.check_url(url, state)
+        cleared = "blocked_since" not in state["pages"][url] and \
+                  "watchdog_sent_at" not in state["pages"][url]
+    finally:
+        ct.html_to_lines, ct.fetch_page, ct.send_notification = (
+            real_lines, real_fetch, real_send)
+    return after_first, after_ten, after_thirtyfive, after_forty, net_blocked, cleared
+
+first, ten, thirtyfive, forty, net_blocked, cleared = watchdog_scenario()
+check("stille ved første sperre", first, [])
+check("stille etter 10 minutter nede", ten, [])
+check("varsler etter 30 minutter nede", thirtyfive, ["Billettvarsleren ser ikke siden"])
+check("gjentar ikke varselet med en gang", forty, thirtyfive)
+check("nettverksfeil regnes som sperre", net_blocked, "ingen svar fra siden")
+check("vellykket sjekk nullstiller vaktbikkja", cleared, True)
+
 if failures:
     print("\n❌  " + f"{len(failures)} test(er) feilet:")
     for f in failures:
