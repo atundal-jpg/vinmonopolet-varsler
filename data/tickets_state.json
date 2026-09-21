@@ -8,7 +8,7 @@
       ],
       "count": 0,
       "url": "https://resale.fotball.no/selection/event/date?productId=10229739619905&checkResaleAvailability=true&lang=en",
-      "last_checked": "2026-09-21T19:22:27.525874"
+      "last_checked": "2026-09-21T23:02:25.857917"
     },
     "0bfb7b888bde": {
       "title": "Norway vs Portugal",
@@ -18,7 +18,7 @@
       ],
       "count": 0,
       "url": "https://resale.fotball.no/selection/event/date?productId=10229739619905&checkResaleAvailability=true&lang=en",
-      "last_checked": "2026-09-21T19:22:27.525887"
+      "last_checked": "2026-09-21T23:02:25.857930"
     },
     "100e6641de4f": {
       "title": "Norway vs Wales",
@@ -28,7 +28,7 @@
       ],
       "count": 0,
       "url": "https://resale.fotball.no/selection/event/date?productId=10229739619905&checkResaleAvailability=true&lang=en",
-      "last_checked": "2026-09-21T19:22:27.525892"
+      "last_checked": "2026-09-21T23:02:25.857934"
     }
   },
   "pages": {
@@ -37,11 +37,7 @@
       "empty": true
     },
     "https://resale.fotball.no/selection/event/date?productId=10229739619905&checkResaleAvailability=true&lang=en": {
-      "parse_ok": true,
-      "blocked": "waiting room",
-      "blocked_at": "2026-09-21T19:28:06.579523",
-      "strikes": 1,
-      "paused_until": "2026-09-21T19:38:06.579510"
+      "parse_ok": true
     }
   }
 }
