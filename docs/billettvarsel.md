@@ -78,6 +78,20 @@ sluppet gjennom hver gang. Vil du prøve tettere, må det gjøres med en loop in
 i kjøringen (`POLL_INTERVAL`), og da bør du følge med i loggen: dukker det opp
 «🚧 Kom ikke gjennom», er du over grensen.
 
+### Varsler om at varsleren selv er nede
+
+Stillhet fra varsleren skal ikke kunne bety «den er død». Derfor:
+
+- **Kjøringen feiler** (kodefeil, GitHub-trøbbel) → workflowen sender ntfy-push
+  med lenke til kjøringen, via `if: failure()`-steget.
+- **Vi kommer ikke gjennom til siden** i mer enn 30 minutter sammenhengende
+  (venterom, captcha, cookie-vegg eller nettverksfeil) → ett varsel om at
+  varsleren ikke kan se billetter nå. Gjentas tidligst etter to timer, og
+  nullstilles så snart en sjekk slipper gjennom.
+
+Det som *ikke* varsles er enkeltsperrer og korte avbrudd – de er normale og
+håndteres av tilbaketrekkingen under.
+
 ### Tilbaketrekking
 
 Sperrer siden oss likevel, pauser varsleren *seg selv* for den siden – 5

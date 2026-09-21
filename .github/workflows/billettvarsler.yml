@@ -89,3 +89,22 @@ jobs:
             echo "::error::Klarte ikke å pushe tickets_state.json etter 5 forsøk."
             exit 1
           fi
+
+      - name: Varsle hvis kjøringen feilet
+        if: failure()
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          # Stillhet fra varsleren skal ikke kunne bety "den er død".
+          if [ -z "$NTFY_TOPIC" ]; then
+            echo "NTFY_TOPIC ikke satt – kan ikke varsle om feilen."
+            exit 0
+          fi
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          curl -sS -X POST "https://ntfy.sh/$NTFY_TOPIC" \
+            -H "Title: Billettvarsleren feilet" \
+            -H "Priority: high" \
+            -H "Tags: warning" \
+            -d "Kjøringen stoppet med feil, og sjekker ikke etter billetter før det er rettet.
+
+          $RUN_URL" || true
