@@ -274,11 +274,13 @@ def event_key(url, entry):
     base = f"{url}|{entry['title']}|{' '.join(entry['details'][:2])}"
     return hashlib.sha1(base.encode("utf-8")).hexdigest()[:12]
 
-# Blir vi sperret, dobles pausen for hvert forsøk: 10, 20, 40 min … opp til en
-# time. Da finner varsleren selv en frekvens siden tåler, i stedet for å ligge
-# og banke på en dør som er lukket.
-BACKOFF_START_MINUTES = 10
-BACKOFF_MAX_MINUTES   = 60
+# Blir vi sperret, dobles pausen for hvert forsøk: 5, 10, 20 … opp til 30 min.
+# Da finner varsleren selv en frekvens siden tåler, i stedet for å ligge og
+# banke på en dør som er lukket. Pausen starter på 5 minutter – samme takt som
+# vi polte med i en måned uten å bli sperret – så en enkelt sperre ikke setter
+# oss ut av spill i en halvtime rett før kampen.
+BACKOFF_START_MINUTES = 5
+BACKOFF_MAX_MINUTES   = 30
 
 def backoff_until(strikes):
     minutes = min(BACKOFF_START_MINUTES * 2 ** (strikes - 1), BACKOFF_MAX_MINUTES)
@@ -407,7 +409,7 @@ def check_url(url, state):
     page_state["empty"] = empty
 
 def run_once(state):
-    jitter = random.randint(0, 40)
+    jitter = random.randint(0, 20)
     if jitter and not DUMP_HTML:
         print(f"⏱️   Venter {jitter}s før sjekk (jevner ut trafikken).")
         time.sleep(jitter)

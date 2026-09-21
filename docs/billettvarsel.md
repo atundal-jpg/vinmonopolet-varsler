@@ -67,7 +67,7 @@ samme repo starter i praksis bare hver 30.–60. minutt. Timeplanen alene gir
 altså ikke sjekk hvert 5. minutt, uansett hva cron-linjen sier.
 
 Løsningen er at hver kjøring dekker tiden fram til neste selv: den looper i
-inntil 50 minutter og sjekker hvert 5. minutt (`POLL_INTERVAL=300`,
+inntil 50 minutter og sjekker hvert 2. minutt (`POLL_INTERVAL=120`,
 `MAX_MINUTES=50`), med noen sekunders tilfeldig slark i starttidspunktet.
 `concurrency`-gruppa sørger for at bare én kjøring går om gangen.
 
@@ -80,9 +80,9 @@ i kjøringen (`POLL_INTERVAL`), og da bør du følge med i loggen: dukker det op
 
 ### Tilbaketrekking
 
-Sperrer siden oss likevel, pauser varsleren *seg selv* for den siden – 10
-minutter første gang, så 20, 40 og opp til en time – og gjenopptar automatisk
-når en sjekk slipper gjennom. Frekvensen regulerer seg altså selv mot det
+Sperrer siden oss likevel, pauser varsleren *seg selv* for den siden – 5
+minutter første gang, så 10, 20 og opp til 30 – og gjenopptar automatisk når en
+sjekk slipper gjennom. Frekvensen regulerer seg altså selv mot det
 siden tåler, uten at noen må gjette.
 
 ## Innstillinger

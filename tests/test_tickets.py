@@ -159,7 +159,7 @@ check("sperre gir pause", paused, True)
 check("henter ikke siden mens pausen løper", skipped, True)
 check("vellykket sjekk nullstiller pausen", cleared, True)
 check("pausen dobles for hvert forsøk",
-      [ct.backoff_until(n)[1] for n in (1, 2, 3, 4, 9)], [10, 20, 40, 60, 60])
+      [ct.backoff_until(n)[1] for n in (1, 2, 3, 4, 9)], [5, 10, 20, 30, 30])
 
 if failures:
     print("\n❌  " + f"{len(failures)} test(er) feilet:")

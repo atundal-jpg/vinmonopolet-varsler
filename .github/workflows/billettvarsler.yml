@@ -5,7 +5,7 @@ on:
     # GitHub struper planlagte kjøringer kraftig: vinvarslerens "*/5" starter
     # i praksis bare hver 30.-60. minutt. Vi ber derfor om hvert 5. minutt,
     # men lener oss ikke på at det skjer – hver kjøring looper i stedet i
-    # inntil 50 minutter og sjekker hvert 5. minutt selv (POLL_INTERVAL /
+    # inntil 50 minutter og sjekker hvert 2. minutt selv (POLL_INTERVAL /
     # MAX_MINUTES nedenfor). Da gir én kjøring dekning helt til neste starter.
     - cron: "*/5 * * * *"
   workflow_dispatch:
@@ -49,8 +49,8 @@ jobs:
           # repository variable (Settings → Secrets and variables → Variables).
           RESALE_URLS: ${{ vars.RESALE_URLS }}
           MATCH_FILTER: ${{ inputs.match_filter || vars.MATCH_FILTER }}
-          # Sjekk hvert 5. minutt inne i kjøringen, i inntil 50 minutter.
-          POLL_INTERVAL: ${{ inputs.dump_html && '0' || '300' }}
+          # Sjekk hvert 2. minutt inne i kjøringen, i inntil 50 minutter.
+          POLL_INTERVAL: ${{ inputs.dump_html && '0' || '120' }}
           MAX_MINUTES: ${{ inputs.dump_html && '0' || '50' }}
           DUMP_HTML: ${{ inputs.dump_html && '1' || '' }}
         run: python check_tickets.py
