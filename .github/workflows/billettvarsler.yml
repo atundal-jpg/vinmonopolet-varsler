@@ -1,13 +1,21 @@
 name: Billettvarsler (fotball)
 
 on:
-  schedule:
-    # GitHub struper planlagte kjøringer kraftig: vinvarslerens "*/5" starter
-    # i praksis bare hver 30.-60. minutt. Vi ber derfor om hvert 5. minutt,
-    # men lener oss ikke på at det skjer – hver kjøring looper i stedet i
-    # inntil 50 minutter og sjekker hvert 2. minutt selv (POLL_INTERVAL /
-    # MAX_MINUTES nedenfor). Da gir én kjøring dekning helt til neste starter.
-    - cron: "*/5 * * * *"
+  # ─── PAUSET 25. september 2026 ────────────────────────────────────────────
+  # Under landslagspausen innførte resale.fotball.no en kode som må tastes inn
+  # for å nå billettsiden. Det er en bevisst sperre mot boter og masse-
+  # forespørsler, og den respekteres: varsleren kommer uansett ikke inn, og
+  # skal ikke ligge og banke på.
+  #
+  # Slå på igjen ved å fjerne kommentartegnene under. Alt annet står klart.
+  #
+  # schedule:
+  #   # GitHub struper planlagte kjøringer kraftig: vinvarslerens "*/5" starter
+  #   # i praksis bare hver 30.-60. minutt. Vi ber derfor om hvert 5. minutt,
+  #   # men lener oss ikke på at det skjer – hver kjøring looper i stedet i
+  #   # inntil 50 minutter og sjekker hvert 2. minutt selv (POLL_INTERVAL /
+  #   # MAX_MINUTES nedenfor). Da gir én kjøring dekning helt til neste starter.
+  #   - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       dump_html:

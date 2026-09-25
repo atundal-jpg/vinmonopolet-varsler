@@ -1,5 +1,12 @@
 # Billettvarsel – resale.fotball.no
 
+> **⏸️ Pauset 25. september 2026.** Under landslagspausen innførte
+> `resale.fotball.no` en kode som må tastes inn for å nå billettsiden – en
+> bevisst sperre mot boter. Varsleren kommer ikke inn uansett, og skal ikke
+> ligge og presse på. Den planlagte kjøringen er kommentert ut i
+> `.github/workflows/billettvarsler.yml`; fjern kommentartegnene foran
+> `schedule:` for å starte igjen. Manuell kjøring virker fortsatt.
+
 Varsler på ntfy (samme topic som vinvarslene) når det legges ut billetter for
 videresalg på NFFs offisielle plattform.
 
