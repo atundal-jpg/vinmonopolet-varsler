@@ -36,21 +36,21 @@
       "parse_ok": false,
       "empty": true,
       "blocked": "ingen svar fra siden",
-      "blocked_at": "2026-09-25T05:57:29.087153",
-      "strikes": 12,
-      "paused_until": "2026-09-25T06:27:29.087161",
+      "blocked_at": "2026-10-06T10:35:43.097679",
+      "strikes": 13,
+      "paused_until": "2026-10-06T11:05:43.097688",
       "blocked_since": "2026-09-24T15:27:02.810362",
-      "watchdog_sent_at": "2026-09-25T05:25:48.818154"
+      "watchdog_sent_at": "2026-10-06T10:35:43.097679"
     },
     "https://resale.fotball.no/selection/event/date?productId=10229739619905&checkResaleAvailability=true&lang=en": {
       "parse_ok": false,
       "empty": false,
       "blocked": "ingen svar fra siden",
-      "blocked_at": "2026-09-25T05:57:23.546838",
-      "strikes": 12,
-      "paused_until": "2026-09-25T06:27:23.546846",
+      "blocked_at": "2026-10-06T10:35:37.384029",
+      "strikes": 13,
+      "paused_until": "2026-10-06T11:05:37.384038",
       "blocked_since": "2026-09-24T15:26:56.924514",
-      "watchdog_sent_at": "2026-09-25T05:25:42.791730"
+      "watchdog_sent_at": "2026-10-06T10:35:37.384029"
     }
   }
 }
