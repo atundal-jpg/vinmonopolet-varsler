@@ -1,13 +1,20 @@
 name: Billettvarsler (fotball)
 
 on:
-  schedule:
-    # GitHub struper planlagte kjøringer kraftig: vinvarslerens "*/5" starter
-    # i praksis bare hver 30.-60. minutt. Vi ber derfor om hvert 5. minutt,
-    # men lener oss ikke på at det skjer – hver kjøring looper i stedet i
-    # inntil 50 minutter og sjekker hvert 2. minutt selv (POLL_INTERVAL /
-    # MAX_MINUTES nedenfor). Da gir én kjøring dekning helt til neste starter.
-    - cron: "*/5 * * * *"
+  # ─── PAUSET IGJEN 6. oktober 2026 ─────────────────────────────────────────
+  # resale.fotball.no svarer nå HTTP 403 på alt, også forsiden, fra GitHubs
+  # maskiner. Siste vellykkede lesing var 24. september 15:26. Varsleren kan
+  # ikke se billetter, og gir bare «ser ikke siden»-varsler hvis den står på.
+  #
+  # Slå på igjen ved å fjerne kommentartegnene under.
+  #
+  # schedule:
+  #   # GitHub struper planlagte kjøringer kraftig: vinvarslerens "*/5" starter
+  #   # i praksis bare hver 30.-60. minutt. Vi ber derfor om hvert 5. minutt,
+  #   # men lener oss ikke på at det skjer – hver kjøring looper i stedet i
+  #   # inntil 50 minutter og sjekker hvert 2. minutt selv (POLL_INTERVAL /
+  #   # MAX_MINUTES nedenfor). Da gir én kjøring dekning helt til neste starter.
+  #   - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       dump_html:
