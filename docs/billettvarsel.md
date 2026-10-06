@@ -1,5 +1,21 @@
 # Billettvarsel – resale.fotball.no
 
+> **⏸️ Pauset – og trolig utspilt. Sist undersøkt 6. oktober 2026.**
+>
+> `resale.fotball.no` svarer nå `HTTP 403` på alt, også forsiden, fra GitHubs
+> maskiner. Bekreftet to ganger fra ulike maskiner, så det er ikke én
+> bannlyst IP. Siste gang varsleren så en ekte side var **24. september
+> 15:26** – samme døgn som NFF innførte en kode som må tastes inn for å nå
+> billettsiden i nettleser.
+>
+> Varsleren er altså ikke ødelagt: den blir nektet adgang. Koden er en bevisst
+> sperre mot automatisk trafikk, og den skal respekteres – ikke omgås.
+>
+> **Før en eventuell omstart:** kjør workflowen manuelt med *Dump html* og se
+> om 403-en er borte. Er den det, må også `DEFAULT_URLS` i `check_tickets.py`
+> oppdateres – `productId=10229739619905` peker på Nations League-kampene i
+> september 2026, som er spilt.
+
 Varsler på ntfy (samme topic som vinvarslene) når det legges ut billetter for
 videresalg på NFFs offisielle plattform.
 
