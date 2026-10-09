@@ -309,6 +309,12 @@ def register_block(url, page_state, reason):
     if down < WATCHDOG_AFTER_MINUTES:
         return
 
+    if DUMP_HTML:
+        # Diagnosekjøring: vi sjekker selv om siden svarer, og skal ikke
+        # sende push til telefonen for noe vi allerede står og ser på.
+        print(f"    🔕  Nede i {int(down)} min, men diagnosekjøring – varsler ikke.")
+        return
+
     sent = page_state.get("watchdog_sent_at")
     if sent and (now - datetime.fromisoformat(sent)).total_seconds() < WATCHDOG_REPEAT_HOURS * 3600:
         return
