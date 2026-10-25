@@ -43,7 +43,7 @@
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:37.531256"
+      "last_checked": "2026-10-25T08:20:37.403810"
     },
     "producer_20491001": {
       "in_store": true,
@@ -51,7 +51,7 @@
       "stores": [
         "Oslo, Briskeby"
       ],
-      "last_checked": "2026-10-25T08:10:37.531271"
+      "last_checked": "2026-10-25T08:20:37.403825"
     },
     "producer_20490601": {
       "in_store": true,
@@ -59,7 +59,7 @@
       "stores": [
         "Oslo, Briskeby"
       ],
-      "last_checked": "2026-10-25T08:10:37.531274"
+      "last_checked": "2026-10-25T08:20:37.403829"
     },
     "producer_20490905": {
       "in_store": false,
@@ -73,7 +73,7 @@
       "stores": [
         "Oslo, Briskeby"
       ],
-      "last_checked": "2026-10-25T08:10:37.531277"
+      "last_checked": "2026-10-25T08:20:37.403832"
     },
     "producer_20490805": {
       "in_store": true,
@@ -87,7 +87,7 @@
       "in_store": false,
       "delivery": true,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:37.531280"
+      "last_checked": "2026-10-25T08:20:37.403836"
     },
     "producer_20491101": {
       "in_store": true,
@@ -95,7 +95,7 @@
       "stores": [
         "Oslo, Frogner"
       ],
-      "last_checked": "2026-10-25T08:10:37.531283"
+      "last_checked": "2026-10-25T08:20:37.403839"
     },
     "producer_20491401": {
       "in_store": true,
@@ -103,7 +103,7 @@
       "stores": [
         "Oslo, Vinderen"
       ],
-      "last_checked": "2026-10-25T08:10:37.531285"
+      "last_checked": "2026-10-25T08:20:37.403842"
     },
     "producer_20489105": {
       "in_store": false,
@@ -117,103 +117,103 @@
       "stores": [
         "Oslo, Skøyen"
       ],
-      "last_checked": "2026-10-25T08:10:37.531287"
+      "last_checked": "2026-10-25T08:20:37.403845"
     },
     "producer_20491501": {
       "in_store": false,
       "delivery": true,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:37.531289"
+      "last_checked": "2026-10-25T08:20:37.403848"
     },
     "producer_17333901": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537828"
+      "last_checked": "2026-10-25T08:20:48.114261"
     },
     "producer_16628401": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537843"
+      "last_checked": "2026-10-25T08:20:48.114276"
     },
     "producer_16627301": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537849"
+      "last_checked": "2026-10-25T08:20:48.114283"
     },
     "producer_12467301": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537852"
+      "last_checked": "2026-10-25T08:20:48.114286"
     },
     "producer_12473305": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537854"
+      "last_checked": "2026-10-25T08:20:48.114289"
     },
     "producer_12467901": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537856"
+      "last_checked": "2026-10-25T08:20:48.114292"
     },
     "producer_12468001": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537858"
+      "last_checked": "2026-10-25T08:20:48.114294"
     },
     "producer_17334001": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537865"
+      "last_checked": "2026-10-25T08:20:48.114303"
     },
     "producer_12468201": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537867"
+      "last_checked": "2026-10-25T08:20:48.114305"
     },
     "producer_16627801": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537871"
+      "last_checked": "2026-10-25T08:20:48.114311"
     },
     "producer_17333801": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537875"
+      "last_checked": "2026-10-25T08:20:48.114316"
     },
     "producer_12473601": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537879"
+      "last_checked": "2026-10-25T08:20:48.114321"
     },
     "producer_19532501": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537882"
+      "last_checked": "2026-10-25T08:20:48.114325"
     },
     "producer_19531701": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:47.537885"
+      "last_checked": "2026-10-25T08:20:48.114330"
     },
     "17005901": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:22.580517"
+      "last_checked": "2026-10-25T08:20:24.206377"
     },
     "20571205": {
       "in_store": true,
@@ -227,7 +227,7 @@
         "Oslo, Skøyen",
         "Oslo, Aker Brygge"
       ],
-      "last_checked": "2026-10-25T08:10:47.537847"
+      "last_checked": "2026-10-25T08:20:48.114279"
     },
     "producer_20705601": {
       "in_store": true,
@@ -236,7 +236,7 @@
         "Oslo, Skøyen",
         "Oslo, Aker Brygge"
       ],
-      "last_checked": "2026-10-25T08:10:47.537861"
+      "last_checked": "2026-10-25T08:20:48.114297"
     },
     "producer_20706201": {
       "in_store": true,
@@ -245,7 +245,7 @@
         "Oslo, Skøyen",
         "Oslo, Aker Brygge"
       ],
-      "last_checked": "2026-10-25T08:10:47.537863"
+      "last_checked": "2026-10-25T08:20:48.114300"
     },
     "producer_20706101": {
       "in_store": true,
@@ -254,7 +254,7 @@
         "Oslo, Skøyen",
         "Oslo, Aker Brygge"
       ],
-      "last_checked": "2026-10-25T08:10:47.537869"
+      "last_checked": "2026-10-25T08:20:48.114308"
     },
     "producer_20705801": {
       "in_store": true,
@@ -263,7 +263,7 @@
         "Oslo, Skøyen",
         "Oslo, Aker Brygge"
       ],
-      "last_checked": "2026-10-25T08:10:47.537873"
+      "last_checked": "2026-10-25T08:20:48.114313"
     },
     "producer_20706001": {
       "in_store": true,
@@ -271,7 +271,7 @@
       "stores": [
         "Oslo, Aker Brygge"
       ],
-      "last_checked": "2026-10-25T08:10:47.537877"
+      "last_checked": "2026-10-25T08:20:48.114319"
     },
     "producer_20706301": {
       "in_store": true,
@@ -279,7 +279,7 @@
       "stores": [
         "Oslo, Aker Brygge"
       ],
-      "last_checked": "2026-10-25T08:10:47.537884"
+      "last_checked": "2026-10-25T08:20:48.114327"
     },
     "producer_20705905": {
       "in_store": true,
@@ -287,7 +287,7 @@
       "stores": [
         "Oslo, Aker Brygge"
       ],
-      "last_checked": "2026-10-25T08:10:47.537887"
+      "last_checked": "2026-10-25T08:20:48.114333"
     },
     "producer_19794701": {
       "in_store": false,
@@ -307,7 +307,7 @@
       "stores": [
         "Oslo, Ullevaal Stadion"
       ],
-      "last_checked": "2026-10-25T08:10:31.746529"
+      "last_checked": "2026-10-25T08:20:32.809884"
     },
     "producer_20742301": {
       "in_store": false,
@@ -333,7 +333,7 @@
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:25.651599"
+      "last_checked": "2026-10-25T08:20:26.942906"
     },
     "producer_20366901": {
       "in_store": false,
@@ -353,7 +353,7 @@
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:52.661574"
+      "last_checked": "2026-10-25T08:20:53.337361"
     },
     "producer_20924001": {
       "in_store": true,
@@ -361,7 +361,7 @@
       "stores": [
         "Oslo, CC Vest"
       ],
-      "last_checked": "2026-10-25T08:10:31.746506"
+      "last_checked": "2026-10-25T08:20:32.809859"
     },
     "producer_20923901": {
       "in_store": true,
@@ -369,7 +369,7 @@
       "stores": [
         "Oslo, CC Vest"
       ],
-      "last_checked": "2026-10-25T08:10:31.746524"
+      "last_checked": "2026-10-25T08:20:32.809878"
     },
     "producer_20136501": {
       "in_store": false,
@@ -412,19 +412,19 @@
       "stores": [
         "Oslo, Vinderen"
       ],
-      "last_checked": "2026-10-25T08:10:42.190135"
+      "last_checked": "2026-10-25T08:20:41.724632"
     },
     "producer_20993901": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:42.633483"
+      "last_checked": "2026-10-25T08:20:41.936655"
     },
     "producer_20749101": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:11:02.024340"
+      "last_checked": "2026-10-25T08:21:02.496121"
     },
     "producer_19516101": {
       "in_store": true,
@@ -446,13 +446,13 @@
       "stores": [
         "Oslo, Frogner"
       ],
-      "last_checked": "2026-10-25T08:10:31.746532"
+      "last_checked": "2026-10-25T08:20:32.809888"
     },
     "producer_21130105": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:32.201871"
+      "last_checked": "2026-10-25T08:20:33.348044"
     },
     "producer_20991505": {
       "in_store": true,
@@ -460,7 +460,7 @@
       "stores": [
         "Oslo, Skøyen"
       ],
-      "last_checked": "2026-10-25T08:10:32.201892"
+      "last_checked": "2026-10-25T08:20:33.348062"
     },
     "producer_21129805": {
       "in_store": true,
@@ -480,19 +480,19 @@
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:10:28.759813"
+      "last_checked": "2026-10-25T08:20:29.722032"
     },
     "producer_20517201": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:11:06.377324"
+      "last_checked": "2026-10-25T08:21:06.796463"
     },
     "producer_19291501": {
       "in_store": false,
       "delivery": false,
       "stores": [],
-      "last_checked": "2026-10-25T08:11:06.377338"
+      "last_checked": "2026-10-25T08:21:06.796476"
     },
     "producer_21031801": {
       "in_store": true,
@@ -500,52 +500,52 @@
       "stores": [
         "Oslo, Aker Brygge"
       ],
-      "last_checked": "2026-10-25T08:10:37.531292"
+      "last_checked": "2026-10-25T08:20:37.403850"
     }
   },
   "producer_products": {
     "Dom. Hubert Lamy": [
       "20991505",
-      "21130105",
-      "21130305",
-      "20923901",
       "20742501",
-      "20924001"
+      "20924001",
+      "20923901",
+      "21130305",
+      "21130105"
     ],
     "Produttori del Barbaresco": [
       "20490701",
-      "20491301",
-      "20490501",
+      "20490601",
       "20491501",
       "20491101",
-      "20491401",
-      "21031801",
+      "20491301",
+      "20491001",
       "20491201",
-      "20490601",
-      "20491001"
+      "21031801",
+      "20490501",
+      "20491401"
     ],
     "Dom. Raveneau": [
-      "16628401",
-      "17333801",
-      "12468001",
-      "20706001",
       "20705701",
+      "12468001",
+      "12467301",
+      "12473305",
+      "17334001",
+      "20705905",
+      "16627301",
+      "20706001",
+      "19531701",
+      "12473601",
+      "16627801",
+      "20705601",
       "12468201",
       "19532501",
-      "17333901",
+      "16628401",
       "12467901",
-      "12473305",
-      "20705905",
-      "20705801",
-      "12467301",
-      "12473601",
-      "16627301",
-      "16627801",
-      "20706101",
-      "19531701",
-      "20705601",
-      "17334001",
+      "17333901",
       "20706201",
+      "20705801",
+      "20706101",
+      "17333801",
       "20706301"
     ],
     "Elise Bougy": [
@@ -563,8 +563,8 @@
       "20927905"
     ],
     "Petit Clergeot": [
-      "20993901",
-      "20994001"
+      "20994001",
+      "20993901"
     ],
     "Chartogne-Taillet": [
       "20749101"
@@ -573,8 +573,8 @@
       "20749101"
     ],
     "Girard-Bonnet": [
-      "19291501",
-      "20517201"
+      "20517201",
+      "19291501"
     ]
   }
 }
