@@ -230,6 +230,18 @@ STORES = {
     "komplett.no": "Komplett",
     "netonnet.no": "NetOnNet",
     "elon.no": "Elon",
+    "samsung.com": "Samsung",
+}
+
+# Prismatch-tips i varselet. Ifølge Elkjøp matcher de Komplett, NetOnNet,
+# Skousen og Power. Ifølge Tek.no matcher Power bare Elkjøp. Vilkår kan
+# endre seg – derfor står det som et tips, ikke en garanti.
+PRICE_MATCH_TIPS = {
+    "Komplett": "Elkjøp kan matche prisen (prismatch) – ta den med hjem samme dag.",
+    "NetOnNet": "Elkjøp kan matche prisen (prismatch) – ta den med hjem samme dag.",
+    "Skousen":  "Elkjøp kan matche prisen (prismatch) – ta den med hjem samme dag.",
+    "Power":    "Elkjøp kan matche prisen (prismatch).",
+    "Elkjøp":   "Power kan matche Elkjøp-prisen (prismatch).",
 }
 
 # Sporingsparametre som ikke endrer hvilken vare siden viser.
@@ -366,6 +378,9 @@ def evaluate(model, variant, price, prev, min_drop_pct=MIN_DROP_PCT):
         lines.append(f"God pris: ≤ {kr(to_number(model['god_pris']))}")
     if model.get("knallpris"):
         lines.append(f"Knallpris: ≤ {kr(to_number(model['knallpris']))}")
+    tip = PRICE_MATCH_TIPS.get(shop)
+    if tip and level:
+        lines.append(f"💡 {tip} Sjekk vilkårene.")
     lines.append(variant["url"])
     return (title, "\n".join(lines), priority), new
 

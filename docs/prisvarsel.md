@@ -7,21 +7,22 @@ time.
 
 ## Modellene
 
-| TV | God pris | Knallpris | Varianter (Prisjakt) |
-| --- | --- | --- | --- |
-| QN70F 75" | ≤ 10 990 | ≤ 9 990 | [QE75QN70F](https://www.prisjakt.no/product.php?p=14816418), [TQ75QN70F](https://www.prisjakt.no/product.php?p=14591124) |
-| M80H 75" | ≤ 10 990 | ≤ 9 990 | [TU75M80HAUXXC](https://www.prisjakt.no/product.php?p=16566935) |
-| QN80F 75" | ≤ 12 990 | ≤ 11 990 | [TQ75QN80F](https://www.prisjakt.no/product.php?p=14585971), [QE75QN80F](https://www.prisjakt.no/product.php?p=15123903) |
-| QN80H 75" (QN82H/QN84H) | ≤ 11 990 | ≤ 10 990 | QE75QN80HAUXXH, TQ75QN82HBUXNA, TQ75QN84HBUXNA – **mangler URL** |
+| TV | God pris | Knallpris | Butikker (hvert 5. min) | Prisjakt (hver time) |
+| --- | --- | --- | --- | --- |
+| QN70F 75" | ≤ 10 990 | ≤ 9 990 | Komplett, NetOnNet, Elon, Elkjøp¹ | TQ75QN70F, QE75QN70F² |
+| M80H 75" | ≤ 10 990 | ≤ 9 990 | Elkjøp, Power, Komplett | TU75M80HAUXXC |
+| QN80F 75" | ≤ 12 990 | ≤ 11 990 | NetOnNet, Elkjøp | TQ75QN80F, QE75QN80F² |
+| QN80H 75" (QN82H/QN84H) | ≤ 11 990 | ≤ 10 990 | Elkjøp (QN84H)³, Samsung.no (QN82H) | – |
 
-Samsung selger samme TV under flere modellkoder (TQ…, QE…, TU…, UE…), og
-Prisjakt har én side per kode. Hver kode følges derfor for seg, med modellens
-grenser.
+¹ Var ikke tilgjengelig i november, men følges i tilfelle den kommer tilbake.
+² Importvariant (QE). De nordiske modellene har TQ/TU-koder.
+³ Lenken er satt sammen fra Elkjøps varenummer 1082827 og ikke bekreftet.
+   Står det «fant ingen pris» i loggen, søk på «QN84H» hos Elkjøp og bytt lenken.
 
-**Mangler:** Jeg fant ingen Prisjakt-produktsider for QN80H, QN82H eller
-QN84H i 75", og heller ikke for UE75M80HAUXXH. Søk opp modellen på Prisjakt,
-åpne produktsiden og lim inn lenken (`https://www.prisjakt.no/product.php?p=…`)
-i `url`-feltet i `data/tv_watchlist.json`. Varianter uten URL hoppes over.
+Samsung selger samme TV under flere modellkoder (TQ…, QE…, TU…), og Prisjakt
+har én side per kode. Hver side følges for seg, med modellens grenser.
+Lenkene står i `data/tv_watchlist.json`. Feltet `merknad` er bare til
+informasjon.
 
 ## Ønskelista
 
@@ -73,6 +74,13 @@ modellkoden på siden stemmer, for eksempel QE75QN70F og ikke QE65QN70F.
   kjøring, med 🏆 hvis det er den laveste prisen varsleren har sett.
 
 Varselet åpner produktsiden når du trykker på det.
+
+**Prismatch:** Når en god pris eller knallpris er funnet hos Komplett,
+NetOnNet, Skousen eller Power, minner varselet om at Elkjøp kan matche prisen.
+Er det Elkjøp som er billigst, minner varselet om at Power matcher Elkjøp.
+Vilkårene kan endre seg, så sjekk dem
+([Elkjøp](https://www.elkjop.no/kundeservice/prismatch),
+[Tek.no](https://www.tek.no/nyheter/guide/i/V9AJop/store-forskjeller-for-prismatch)).
 
 ## Prisloggen
 

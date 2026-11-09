@@ -127,6 +127,9 @@ check("Prisjakt «til butikken» er viderekobling",
       cp.is_prisjakt_redirect("https://www.prisjakt.no/go-to-shop/1234/offer/5678"), True)
 check("butikk fra domene: Elon", cp.store_name({"url": "https://www.elon.no/x"}), "Elon")
 check("butikk fra domene: NetOnNet", cp.store_name({"url": "https://www.netonnet.no/art/x"}), "NetOnNet")
+check("butikk fra domene: Samsung", cp.store_name({"url": "https://www.samsung.com/no/tvs/x"}), "Samsung")
+alert, _ = cp.evaluate(MODEL, {"kode": "k", "url": "https://www.komplett.no/product/1"}, 9990, None, 3)
+check("prismatch-tips for Komplett", "Elkjøp kan matche" in alert[1], True)
 check("butikk kan overstyres", cp.store_name({"url": "https://x.no", "butikk": "X"}), "X")
 check("Prisjakt sjekkes sjeldnere",
       cp.interval_for({"url": "https://www.prisjakt.no/product.php?p=1"}) > cp.interval_for(
