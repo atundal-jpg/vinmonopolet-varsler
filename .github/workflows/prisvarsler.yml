@@ -2,10 +2,13 @@ name: Prisvarsler (TV)
 
 on:
   schedule:
-    # Hver time fra 06 til 23 norsk tid (UTC-tid i cron; 05–22 UTC om vinteren).
-    # Ikke på hel time – da er GitHubs kø lengst. Tre sider i timen er
-    # beskjeden trafikk for Prisjakt.
-    - cron: "17 5-22 * * *"
+    # Døgnet rundt – Black Friday-priser slippes gjerne ved midnatt.
+    # GitHub struper planlagte kjøringer (i praksis hver 30.–60. min), så vi
+    # lener oss ikke på cron alene: hver kjøring looper i inntil 50 minutter
+    # og sjekker selv butikksidene hvert 5. minutt og Prisjakt hver time
+    # (STORE_INTERVAL_MIN / PRISJAKT_INTERVAL_MIN). Samme grep som
+    # billettvarsleren. Repoet er offentlig, så Actions-minuttene er gratis.
+    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       dump_html:
@@ -20,7 +23,8 @@ concurrency:
 jobs:
   sjekk-priser:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Litt over looplengden, så en hengende kjøring ikke blokkerer neste.
+    timeout-minutes: 58
     permissions:
       contents: write
 
@@ -41,6 +45,10 @@ jobs:
           # Minste prisfall i prosent som gir varsel. Kan overstyres med en
           # repository variable (Settings → Secrets and variables → Variables).
           MIN_DROP_PCT: ${{ vars.MIN_DROP_PCT || '3' }}
+          STORE_INTERVAL_MIN: ${{ vars.STORE_INTERVAL_MIN || '5' }}
+          PRISJAKT_INTERVAL_MIN: ${{ vars.PRISJAKT_INTERVAL_MIN || '60' }}
+          # Én runde ved feilsøking, ellers loop i 50 minutter.
+          MAX_MINUTES: ${{ inputs.dump_html && '0' || '50' }}
           DUMP_HTML: ${{ inputs.dump_html && '1' || '' }}
         run: python check_prices.py
 

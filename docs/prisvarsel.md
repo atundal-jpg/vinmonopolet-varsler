@@ -2,7 +2,8 @@
 
 Push-varsel på ntfy (samme topic som vin- og billettvarslene) når en TV på
 ønskelista når «god pris» eller «knallpris», eller faller merkbart. Alle priser
-som leses, logges.
+som leses, logges. Butikkenes egne sider sjekkes hvert 5. minutt, Prisjakt hver
+time.
 
 ## Modellene
 
@@ -37,8 +38,31 @@ i `url`-feltet i `data/tv_watchlist.json`. Varianter uten URL hoppes over.
 }
 ```
 
-`url` kan også være en produktside hos Elkjøp, Power, Komplett o.l. Da leses
-prisen rett fra butikken i stedet for via Prisjakt.
+## Legge inn butikkenes egne sider
+
+Samme kode kan stå flere ganger, én gang per butikk. Butikken kjennes igjen fra
+domenet (Elkjøp, Power, Komplett, NetOnNet, Elon), eller kan settes med
+`"butikk"`:
+
+```json
+"varianter": [
+  {"kode": "QE75QN70F", "url": "https://www.prisjakt.no/product.php?p=14816418"},
+  {"kode": "QE75QN70F", "url": "https://www.elkjop.no/product/…"},
+  {"kode": "QE75QN70F", "url": "https://www.power.no/…"}
+]
+```
+
+Slik finner du lenkene via Prisjakt:
+
+1. Åpne Prisjakt-siden for modellen og klikk deg videre til butikken.
+2. **Kopier adressen fra adressefeltet når butikkens side har lastet**, ikke
+   lenken på Prisjakt. «Til butikken»-lenkene er klikk som butikkene betaler
+   Prisjakt for. Ble de brukt hvert 5. minutt, ville butikkene betalt for
+   hundrevis av falske klikk. Skriptet nekter derfor slike lenker.
+3. Sporingsparametre som `utm_source` og `gclid` fjernes automatisk.
+
+Står ikke butikken på Prisjakt, søk opp TV-en hos butikken direkte. Sjekk at
+modellkoden på siden stemmer, for eksempel QE75QN70F og ikke QE65QN70F.
 
 ## Når det varsles
 
@@ -52,11 +76,11 @@ Varselet åpner produktsiden når du trykker på det.
 
 ## Prisloggen
 
-`data/tv_price_log.csv` får én rad per variant per kjøring:
+`data/tv_price_log.csv` får én rad per side hver gang prisen leses:
 
 ```
-tidspunkt,modell,kode,pris,niva,url
-2026-11-10T08:17:42+00:00,"QN70F 75""",QE75QN70F,12176,,https://www.prisjakt.no/product.php?p=14816418
+tidspunkt,modell,kode,butikk,pris,niva,url
+2026-11-10T08:17:42+00:00,"QN70F 75""",QE75QN70F,Prisjakt,12176,,https://www.prisjakt.no/product.php?p=14816418
 ```
 
 `niva` er `god`, `knall` eller tom. Tidspunktet er i UTC. Fila kan åpnes
@@ -65,9 +89,10 @@ rett i Excel/Numbers eller vises på GitHub.
 ## Hvor fersk er prisen?
 
 Prisjakt oppdaterer vanligvis pris og lagerstatus tre til fem ganger i døgnet,
-og viser prisene uten frakt. Varsleren sjekker hver time og henger derfor ikke
-etter Prisjakt, men en butikk kan ha endret prisen flere timer før Prisjakt får
-det med seg. Sjekk alltid prisen i butikken før du kjøper.
+og viser prisene uten frakt. Prisjakt-sider sjekkes derfor bare hver time,
+siden oftere ikke gir noe. **Butikkenes egne sider sjekkes hvert 5. minutt**
+og fanger prisendringer med en gang. Sjekk alltid prisen i butikken før du
+kjøper.
 
 ## Hvordan det virker
 
@@ -88,8 +113,19 @@ Sikkerhetsnett:
 
 ## Kjøring
 
-Workflowen *Prisvarsler (TV)* går én gang i timen fra kl. 06 til 23. Den kan
-også startes manuelt; med *Dump html* skrives starten av siden ut i loggen.
+Workflowen *Prisvarsler (TV)* går døgnet rundt. GitHub starter planlagte
+kjøringer i praksis bare hver 30.–60. minutt. Derfor looper hver kjøring i
+inntil 50 minutter og sjekker selv det som er forfalt: butikksider hvert 5.
+minutt og Prisjakt hver time. Intervallene kan endres med repository-variablene
+`STORE_INTERVAL_MIN` og `PRISJAKT_INTERVAL_MIN` (Settings → Secrets and
+variables → Variables). Tilstand og logg lagres etter hver runde og pushes når
+kjøringen er ferdig.
+
+Workflowen kan også startes manuelt. Med *Dump html* gjør den én runde og
+skriver starten av hver side ut i loggen.
+
+Det blir 12 forespørsler i timen per butikkside, spredt over flere butikker.
+Viser loggen mange «🚧 kom ikke inn», skal intervallet opp.
 
 Tester: `python3 tests/test_prices.py`
 

@@ -54,7 +54,7 @@ check("produktside er ikke sperret", cp.looks_blocked(PRISJAKT_LIKE + "captcha")
 
 # ─── Varslingslogikk ──────────────────────────────────────────────────────────
 MODEL = {"modell": "QN70F 75\"", "god_pris": 10990, "knallpris": 9990}
-VAR = {"kode": "QE75QN70F", "url": "https://x"}
+VAR = {"kode": "QE75QN70F", "url": "https://www.elkjop.no/product/tv/123"}
 
 def ev(price, prev):
     return cp.evaluate(MODEL, VAR, price, prev, 3)
@@ -71,7 +71,8 @@ check("lite fall (1,5 %): ingen varsel", alert, None)
 
 alert, st3 = ev(10990, st2)
 check("god pris: prioritet high", alert[2], "high")
-check("… tittel har modell og kode", alert[0], "QN70F 75\": 10 990 kr (QE75QN70F)")
+check("… tittel har modell, butikk og kode", alert[0],
+      "QN70F 75\": 10 990 kr hos Elkjøp (QE75QN70F)")
 check("… tekst nevner god pris og fallet", "God pris!" in alert[1] and "Ned" in alert[1], True)
 
 alert, st4 = ev(10990, st3)
@@ -108,11 +109,39 @@ check("ønskelista har gyldige grenser",
 
 with tempfile.TemporaryDirectory() as d:
     path = os.path.join(d, "log.csv")
-    cp.append_log([["t1", "A", "a1", 10990, "god", "u1"]], path)
-    cp.append_log([["t2", "A", "a1", 9990, "knall", "u1"]], path)
+    cp.append_log([["t1", "A", "a1", "Power", 10990, "god", "u1"]], path)
+    cp.append_log([["t2", "A", "a1", "Power", 9990, "knall", "u1"]], path)
     rows = open(path, encoding="utf-8").read().splitlines()
     check("logg: overskrift én gang + to rader", rows,
-          ["tidspunkt,modell,kode,pris,niva,url", "t1,A,a1,10990,god,u1", "t2,A,a1,9990,knall,u1"])
+          ["tidspunkt,modell,kode,butikk,pris,niva,url",
+           "t1,A,a1,Power,10990,god,u1", "t2,A,a1,Power,9990,knall,u1"])
+
+# ─── Lenker, butikker og intervaller ──────────────────────────────────────────
+from datetime import datetime, timedelta, timezone  # noqa: E402
+check("sporingsparametre fjernes",
+      cp.clean_url("https://www.power.no/tv/p-123/?utm_source=prisjakt&gclid=x&color=sort#anm"),
+      "https://www.power.no/tv/p-123/?color=sort")
+check("Prisjakt-produktside er ikke viderekobling",
+      cp.is_prisjakt_redirect("https://www.prisjakt.no/product.php?p=14816418"), False)
+check("Prisjakt «til butikken» er viderekobling",
+      cp.is_prisjakt_redirect("https://www.prisjakt.no/go-to-shop/1234/offer/5678"), True)
+check("butikk fra domene: Elon", cp.store_name({"url": "https://www.elon.no/x"}), "Elon")
+check("butikk fra domene: NetOnNet", cp.store_name({"url": "https://www.netonnet.no/art/x"}), "NetOnNet")
+check("butikk kan overstyres", cp.store_name({"url": "https://x.no", "butikk": "X"}), "X")
+check("Prisjakt sjekkes sjeldnere",
+      cp.interval_for({"url": "https://www.prisjakt.no/product.php?p=1"}) > cp.interval_for(
+          {"url": "https://www.komplett.no/product/1"}), True)
+now = datetime(2026, 11, 27, 6, 0, tzinfo=timezone.utc)
+ago = lambda m: {"sist_sjekket": (now - timedelta(minutes=m)).isoformat()}  # noqa: E731
+check("aldri sjekket: forfalt", cp.is_due(None, 5, now), True)
+check("sjekket for 2 min siden: ikke forfalt", cp.is_due(ago(2), 5, now), False)
+check("sjekket for 4 min 45 s siden: forfalt (slingringsmonn)", cp.is_due(ago(4.75), 5, now), True)
+check("Prisjakt sjekket for 30 min siden: ikke forfalt", cp.is_due(ago(30), 60, now), False)
+WL2 = [{"modell": "A", "varianter": [
+    {"kode": "a", "url": "https://www.prisjakt.no/go-to-shop/1/offer/2"},
+    {"kode": "a", "url": "https://www.elkjop.no/p/1?utm_medium=cpc"}]}]
+check("viderekoblinger hoppes over, sporing fjernes",
+      [v["url"] for _, v in cp.variants(WL2)], ["https://www.elkjop.no/p/1"])
 
 if failures:
     print("\n❌ Feilet:\n  " + "\n  ".join(failures))

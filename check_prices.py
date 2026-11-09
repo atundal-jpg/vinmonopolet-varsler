@@ -20,10 +20,19 @@ Det varsles via ntfy (samme topic som vin- og billettvarslene) når:
     nivå, eller har vært over grensen igjen i mellomtiden,
   • prisen faller minst MIN_DROP_PCT prosent siden forrige kjøring.
 
+Prisjakt oppdaterer selv bare 3–5 ganger i døgnet, så Prisjakt-sider sjekkes
+sjeldnere (PRISJAKT_INTERVAL_MIN) enn butikkenes egne sider
+(STORE_INTERVAL_MIN). Med MAX_MINUTES > 0 looper én kjøring og sjekker det som
+er «forfalt» – slik får vi jevne sjekker selv om GitHub starter planlagte
+kjøringer sjeldnere enn vi ber om.
+
 Miljøvariabler:
-  NTFY_TOPIC     ntfy-topic det varsles til.
-  MIN_DROP_PCT   Minste prisfall (i prosent) som gir varsel. Default 3.
-  DUMP_HTML      "1" for å skrive starten av hentet HTML i loggen (feilsøking).
+  NTFY_TOPIC             ntfy-topic det varsles til.
+  MIN_DROP_PCT           Minste prisfall (i prosent) som gir varsel. Default 3.
+  STORE_INTERVAL_MIN     Minutter mellom sjekk av en butikkside. Default 5.
+  PRISJAKT_INTERVAL_MIN  Minutter mellom sjekk av en Prisjakt-side. Default 60.
+  MAX_MINUTES            Hvor lenge én kjøring looper. Default 0 = én runde.
+  DUMP_HTML              "1" for å skrive starten av hentet HTML i loggen.
 """
 import csv
 import html
@@ -33,18 +42,22 @@ import re
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 NTFY_TOPIC   = os.environ.get("NTFY_TOPIC", "")
 NTFY_URL     = "https://ntfy.sh"
 MIN_DROP_PCT = float(os.environ.get("MIN_DROP_PCT", "3") or 3)
 DUMP_HTML    = os.environ.get("DUMP_HTML", "") == "1"
+STORE_INTERVAL_MIN    = float(os.environ.get("STORE_INTERVAL_MIN", "5") or 5)
+PRISJAKT_INTERVAL_MIN = float(os.environ.get("PRISJAKT_INTERVAL_MIN", "60") or 60)
+MAX_MINUTES           = float(os.environ.get("MAX_MINUTES", "0") or 0)
 
 WATCHLIST_FILE = "data/tv_watchlist.json"
 STATE_FILE     = "data/tv_prices_state.json"
 LOG_FILE       = "data/tv_price_log.csv"
-LOG_HEADER     = ["tidspunkt", "modell", "kode", "pris", "niva", "url"]
+LOG_HEADER     = ["tidspunkt", "modell", "kode", "butikk", "pris", "niva", "url"]
 
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
@@ -208,12 +221,75 @@ def append_log(rows, path=LOG_FILE):
             w.writerow(LOG_HEADER)
         w.writerows(rows)
 
+# ─── Lenker og butikker ───────────────────────────────────────────────────────
+
+STORES = {
+    "prisjakt.no": "Prisjakt",
+    "elkjop.no": "Elkjøp",
+    "power.no": "Power",
+    "komplett.no": "Komplett",
+    "netonnet.no": "NetOnNet",
+    "elon.no": "Elon",
+}
+
+# Sporingsparametre som ikke endrer hvilken vare siden viser.
+TRACKING_PARAMS = re.compile(
+    r"^(utm_.*|gclid|gclsrc|gbraid|wbraid|fbclid|msclkid|dclid|_ga|mc_.*|"
+    r"ref|referrer|affiliate.*|aff_.*|pj_.*|clickid|cid|srsltid)$", re.IGNORECASE)
+
+def clean_url(url):
+    """Fjerner sporingsparametre (utm_*, gclid …) fra en lenke."""
+    parts = urllib.parse.urlsplit(url.strip())
+    query = [(k, v) for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+             if not TRACKING_PARAMS.match(k)]
+    return urllib.parse.urlunsplit(
+        parts._replace(query=urllib.parse.urlencode(query), fragment=""))
+
+def is_prisjakt_redirect(url):
+    """Prisjakts «Til butikken»-lenker er klikk som butikkene betaler for.
+    De skal aldri polles – bruk adressen du havner på i stedet."""
+    parts = urllib.parse.urlsplit(url)
+    return parts.netloc.endswith("prisjakt.no") and "product.php" not in parts.path \
+        and not parts.path.startswith("/product")
+
+def store_name(variant):
+    if variant.get("butikk"):
+        return variant["butikk"]
+    host = urllib.parse.urlsplit(variant["url"]).netloc.lower()
+    for domain, name in STORES.items():
+        if host == domain or host.endswith("." + domain):
+            return name
+    return host.removeprefix("www.")
+
+def interval_for(variant):
+    return PRISJAKT_INTERVAL_MIN if store_name(variant) == "Prisjakt" else STORE_INTERVAL_MIN
+
 def variants(watchlist):
-    """Flater ut ønskelista til (modell, variant)-par. Hopper over tomme URL-er."""
+    """Flater ut ønskelista til (modell, variant)-par med ryddet URL.
+    Hopper over tomme URL-er og Prisjakt-viderekoblinger."""
     for model in watchlist:
         for v in model.get("varianter", []):
-            if v.get("url", "").strip():
-                yield model, v
+            raw = v.get("url", "").strip()
+            if not raw:
+                continue
+            if is_prisjakt_redirect(raw):
+                print(f"⛔ {model['modell']}: {raw} er en Prisjakt-viderekobling "
+                      "(betalt klikk) – bruk butikkens egen adresse. Hoppes over.")
+                continue
+            yield model, {**v, "url": clean_url(raw)}
+
+def is_due(state_entry, interval_min, now):
+    """Er det på tide å sjekke denne siden igjen?"""
+    last = (state_entry or {}).get("sist_sjekket")
+    if not last:
+        return True
+    try:
+        last_dt = datetime.fromisoformat(last)
+    except ValueError:
+        return True
+    # Litt slingringsmonn, så en sjekk som kom noen sekunder for tidlig ikke
+    # skyver neste sjekk et helt intervall ut.
+    return now - last_dt >= timedelta(minutes=interval_min) - timedelta(seconds=30)
 
 # ─── Beslutning ───────────────────────────────────────────────────────────────
 
@@ -249,6 +325,7 @@ def evaluate(model, variant, price, prev, min_drop_pct=MIN_DROP_PCT):
     new = {
         "modell": model["modell"],
         "kode": variant.get("kode", ""),
+        "butikk": store_name(variant),
         "pris": price,
         "laveste": min(price, lowest) if lowest else price,
         "niva": level,
@@ -282,7 +359,8 @@ def evaluate(model, variant, price, prev, min_drop_pct=MIN_DROP_PCT):
         return None, new
 
     code = variant.get("kode")
-    title = f"{model['modell']}: {kr(price)}" + (f" ({code})" if code else "")
+    shop = store_name(variant)
+    title = f"{model['modell']}: {kr(price)} hos {shop}" + (f" ({code})" if code else "")
     lines = reasons + [""]
     if model.get("god_pris"):
         lines.append(f"God pris: ≤ {kr(to_number(model['god_pris']))}")
@@ -310,6 +388,56 @@ def send_notification(title, message, priority="default", click=None):
 
 # ─── Hovedløp ─────────────────────────────────────────────────────────────────
 
+def check_one(model, variant, state, log_rows, now):
+    """Henter én side og varsler ved behov. Returnerer True hvis vi leste en pris."""
+    url = variant["url"]
+    shop = store_name(variant)
+    label = f"{model['modell']} – {variant.get('kode', '')} hos {shop}"
+    stamp = now.isoformat(timespec="seconds")
+    # Registrer forsøket uansett utfall, så en side som feiler ikke prøves
+    # på nytt hvert sekund.
+    entry = state.setdefault(url, {})
+    entry["sist_sjekket"] = stamp
+    try:
+        page = fetch_page(url)
+    except Blocked as e:
+        # Sperren respekteres – vi prøver ikke å omgå den, og varsler ikke
+        # på noe vi ikke vet.
+        print(f"🚧 {label}: kom ikke inn ({e}).")
+        return False
+    except Exception as e:
+        print(f"⚠️  {label}: feil ved henting: {e}")
+        return False
+
+    if DUMP_HTML:
+        print(page[:3000])
+    if looks_blocked(page):
+        print(f"🚧 {label}: fikk en sperreside (captcha/bot-sjekk).")
+        return False
+
+    price, source = extract_price(page)
+    if price is None:
+        print(f"❓ {label}: fant ingen pris på siden.")
+        return False
+
+    prev = entry if entry.get("pris") else None
+    if prev and price < prev["pris"] * SUSPICIOUS_RATIO:
+        # Et fall på over 60 % er nesten alltid feil vare/feil tall, ikke
+        # Black Friday. Behold forrige tilstand og ikke logg tallet.
+        print(f"🤨 {label}: {kr(price)} er mistenkelig lavt mot {kr(prev['pris'])} – ignoreres.")
+        return True
+    print(f"💰 {label}: {kr(price)} ({source})"
+          + (f" – forrige: {kr(prev['pris'])}" if prev else ""))
+    alert, new = evaluate(model, variant, price, prev)
+    new["sist_sjekket"] = stamp
+    state[url] = new
+    log_rows.append([stamp, model["modell"], variant.get("kode", ""), shop,
+                     int(round(price)), new["niva"] or "", url])
+    if alert:
+        title, message, priority = alert
+        send_notification(title, message, priority, click=url)
+    return True
+
 def main():
     watchlist = load_json(WATCHLIST_FILE, [])
     for model in watchlist:
@@ -322,67 +450,57 @@ def main():
         print(f"Ingen varer med URL i {WATCHLIST_FILE}.")
         return 0
 
+    stores = sorted({store_name(v) for _, v in todo})
+    print(f"Følger {len(todo)} sider hos {', '.join(stores)}. "
+          f"Butikker hvert {STORE_INTERVAL_MIN:g}. min, Prisjakt hvert {PRISJAKT_INTERVAL_MIN:g}. min.")
+
     state = load_json(STATE_FILE, {})
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    started = datetime.now(timezone.utc)
+    deadline = started + timedelta(minutes=MAX_MINUTES)
+    tried = read_ok = 0
     log_rows = []
-    read_ok = 0
 
-    for i, (model, variant) in enumerate(todo):
-        url = variant["url"].strip()
-        print(f"🔎 {model['modell']} – {variant.get('kode', url)}")
-        if i:
-            time.sleep(DELAY_SECONDS)
-        try:
-            page = fetch_page(url)
-        except Blocked as e:
-            # Sperren respekteres – vi prøver ikke å omgå den, og varsler ikke
-            # på noe vi ikke vet.
-            print(f"    🚧 Kom ikke inn ({e}). Hopper over.")
-            continue
-        except Exception as e:
-            print(f"    ⚠️  Feil ved henting: {e}")
-            continue
+    while True:
+        now = datetime.now(timezone.utc)
+        due = [(m, v) for m, v in todo if is_due(state.get(v["url"]), interval_for(v), now)]
+        if due:
+            print(f"\n── Runde {now.strftime('%H:%M')} UTC: {len(due)} sider ──")
+        for k, (model, variant) in enumerate(due):
+            if k:
+                time.sleep(DELAY_SECONDS)
+            tried += 1
+            read_ok += check_one(model, variant, state, log_rows,
+                                 datetime.now(timezone.utc))
+        # Lagre etter hver runde, så et avbrudd ikke koster historikk.
+        save_state(state)
+        append_log(log_rows)
+        log_rows = []
 
-        if DUMP_HTML:
-            print(page[:3000])
-        if looks_blocked(page):
-            print("    🚧 Fikk en sperreside (captcha/bot-sjekk). Hopper over.")
-            continue
+        if MAX_MINUTES <= 0:
+            break
+        # Sov til neste side forfaller, men ikke forbi fristen.
+        now = datetime.now(timezone.utc)
+        waits = []
+        for _, v in todo:
+            last = state.get(v["url"], {}).get("sist_sjekket")
+            nxt = (datetime.fromisoformat(last) + timedelta(minutes=interval_for(v))
+                   if last else now)
+            waits.append((nxt - now).total_seconds())
+        sleep_s = max(5, min(waits))
+        if now + timedelta(seconds=sleep_s) >= deadline:
+            break
+        time.sleep(sleep_s)
 
-        price, source = extract_price(page)
-        if price is None:
-            print("    ❓ Fant ingen pris på siden – ingen varsel.")
-            continue
-
-        read_ok += 1
-        prev = state.get(url)
-        if prev and prev.get("pris") and price < prev["pris"] * SUSPICIOUS_RATIO:
-            # Et fall på over 60 % er nesten alltid feil vare/feil tall, ikke
-            # Black Friday. Behold forrige tilstand og ikke logg tallet.
-            print(f"    🤨 {kr(price)} er mistenkelig lavt mot {kr(prev['pris'])} – ignoreres.")
-            continue
-        print(f"    💰 {kr(price)} ({source})"
-              + (f" – forrige: {kr(prev['pris'])}" if prev and prev.get("pris") else ""))
-        alert, new = evaluate(model, variant, price, prev)
-        new["sist_sjekket"] = now
-        state[url] = new
-        log_rows.append([now, model["modell"], variant.get("kode", ""),
-                         int(round(price)), new["niva"] or "", url])
-        if alert:
-            title, message, priority = alert
-            send_notification(title, message, priority, click=url)
-
-    # Fjern tilstand for varer som er tatt ut av ønskelista.
-    urls = {v["url"].strip() for _, v in todo}
+    # Fjern tilstand for sider som er tatt ut av ønskelista.
+    urls = {v["url"] for _, v in todo}
     for url in [u for u in state if u not in urls]:
         del state[url]
-
     save_state(state)
-    append_log(log_rows)
-    print(f"\nLeste pris for {read_ok} av {len(todo)} varianter.")
+
+    print(f"\nLeste pris i {read_ok} av {tried} forsøk.")
     # Klarer vi ikke lese en eneste pris, er noe galt – feil kjøringen så
     # workflowen sender et «varsleren feilet»-varsel i stedet for å tie.
-    return 0 if read_ok else 1
+    return 0 if read_ok or not tried else 1
 
 if __name__ == "__main__":
     sys.exit(main())
