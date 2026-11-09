@@ -53,34 +53,66 @@ check("captcha-side er sperret", cp.looks_blocked("<html>Please solve the CAPTCH
 check("produktside er ikke sperret", cp.looks_blocked(PRISJAKT_LIKE + "captcha"), False)
 
 # ─── Varslingslogikk ──────────────────────────────────────────────────────────
-ITEM = {"navn": "Samsung S90H", "url": "https://x", "malpris": 19990}
+MODEL = {"modell": "QN70F 75\"", "god_pris": 10990, "knallpris": 9990}
+VAR = {"kode": "QE75QN70F", "url": "https://x"}
 
-alert, st = cp.evaluate(ITEM, 22990, None, 3)
-check("første kjøring over målpris: ingen varsel", alert, None)
+def ev(price, prev):
+    return cp.evaluate(MODEL, VAR, price, prev, 3)
 
-alert, st2 = cp.evaluate(ITEM, 22490, st, 3)
-check("lite fall (2 %): ingen varsel", alert, None)
+check("nivå over grensene", cp.level_for(MODEL, 11000), None)
+check("nivå god pris (på grensen)", cp.level_for(MODEL, 10990), "god")
+check("nivå knallpris (på grensen)", cp.level_for(MODEL, 9990), "knall")
 
-alert, st3 = cp.evaluate(ITEM, 20990, st2, 3)
-check("fall ≥ 3 %: varsel", alert is not None and "Ned" in alert[1], True)
-check("… og ny bunn nevnes", "Laveste pris" in alert[1], True)
+alert, st = ev(12176, None)
+check("første kjøring over grensene: ingen varsel", alert, None)
 
-alert, st4 = cp.evaluate(ITEM, 19490, st3, 3)
-check("under målpris: høy prioritet", alert[2], "high")
-check("… målpris i teksten", "målprisen" in alert[1], True)
+alert, st2 = ev(11990, st)
+check("lite fall (1,5 %): ingen varsel", alert, None)
 
-alert, st5 = cp.evaluate(ITEM, 19490, st4, 3)
+alert, st3 = ev(10990, st2)
+check("god pris: prioritet high", alert[2], "high")
+check("… tittel har modell og kode", alert[0], "QN70F 75\": 10 990 kr (QE75QN70F)")
+check("… tekst nevner god pris og fallet", "God pris!" in alert[1] and "Ned" in alert[1], True)
+
+alert, st4 = ev(10990, st3)
 check("samme pris igjen: ingen gjentatt varsel", alert, None)
 
-alert, st6 = cp.evaluate(ITEM, 19390, st5, 3)
-check("faller litt videre under målpris: nytt varsel", alert is not None, True)
+alert, st5 = ev(9990, st4)
+check("knallpris: prioritet urgent", alert[2], "urgent")
+check("… tekst sier KNALLPRIS", "KNALLPRIS" in alert[1], True)
 
-alert, st7 = cp.evaluate(ITEM, 21990, st6, 3)
-check("prisen stiger: ingen varsel", alert, None)
-alert, _ = cp.evaluate(ITEM, 19990, st7, 3)
-check("tilbake på målpris etter å ha vært over: varsel igjen", alert is not None, True)
+alert, st6 = ev(9790, st5)
+check("faller videre innenfor knallpris: nytt varsel", alert is not None, True)
 
-check("laveste huskes", st7["laveste"], 19390)
+alert, st7 = ev(10490, st6)
+check("stiger fra knall til god: ingen varsel", alert, None)
+
+alert, st8 = ev(11990, st7)
+check("over grensene igjen: ingen varsel", alert, None)
+alert, _ = ev(10990, st8)
+check("tilbake på god pris etter å ha vært over: varsel igjen", alert is not None, True)
+
+check("laveste huskes", st8["laveste"], 9790)
+check("nivå lagres i tilstanden", st5["niva"], "knall")
+
+# ─── Ønskeliste og logg ───────────────────────────────────────────────────────
+import json, tempfile  # noqa: E401,E402
+WL = [{"modell": "A", "varianter": [{"kode": "a1", "url": "u1"}, {"kode": "a2", "url": ""}]},
+      {"modell": "B", "varianter": [{"kode": "b1", "url": " u2 "}]}]
+check("varianter uten URL hoppes over",
+      [v["kode"] for _, v in cp.variants(WL)], ["a1", "b1"])
+
+real = json.load(open(os.path.join(os.path.dirname(__file__), "..", "data", "tv_watchlist.json")))
+check("ønskelista har gyldige grenser",
+      all(m["knallpris"] < m["god_pris"] for m in real), True)
+
+with tempfile.TemporaryDirectory() as d:
+    path = os.path.join(d, "log.csv")
+    cp.append_log([["t1", "A", "a1", 10990, "god", "u1"]], path)
+    cp.append_log([["t2", "A", "a1", 9990, "knall", "u1"]], path)
+    rows = open(path, encoding="utf-8").read().splitlines()
+    check("logg: overskrift én gang + to rader", rows,
+          ["tidspunkt,modell,kode,pris,niva,url", "t1,A,a1,10990,god,u1", "t2,A,a1,9990,knall,u1"])
 
 if failures:
     print("\n❌ Feilet:\n  " + "\n  ".join(failures))

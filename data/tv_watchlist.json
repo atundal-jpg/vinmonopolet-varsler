@@ -1,17 +1,38 @@
 [
   {
-    "navn": "Samsung S90H 65\" OLED (2026)",
-    "url": "https://www.prisjakt.no/product.php?p=16030853",
-    "malpris": 18990
+    "modell": "QN70F 75\"",
+    "god_pris": 10990,
+    "knallpris": 9990,
+    "varianter": [
+      {"kode": "QE75QN70F", "url": "https://www.prisjakt.no/product.php?p=14816418"},
+      {"kode": "TQ75QN70F", "url": "https://www.prisjakt.no/product.php?p=14591124"}
+    ]
   },
   {
-    "navn": "Samsung S95H 65\" OLED (2026)",
-    "url": "https://www.prisjakt.no/product.php?p=16030722",
-    "malpris": 19990
+    "modell": "M80H 75\"",
+    "god_pris": 10990,
+    "knallpris": 9990,
+    "varianter": [
+      {"kode": "TU75M80HAUXXC", "url": "https://www.prisjakt.no/product.php?p=16566935"}
+    ]
   },
   {
-    "navn": "Samsung The Frame Pro LS03HW 65\" (2026)",
-    "url": "https://www.prisjakt.no/product.php?p=16511197",
-    "malpris": 17990
+    "modell": "QN80F 75\"",
+    "god_pris": 12990,
+    "knallpris": 11990,
+    "varianter": [
+      {"kode": "TQ75QN80F", "url": "https://www.prisjakt.no/product.php?p=14585971"},
+      {"kode": "QE75QN80F", "url": "https://www.prisjakt.no/product.php?p=15123903"}
+    ]
+  },
+  {
+    "modell": "QN80H 75\" (QN82H/QN84H)",
+    "god_pris": 11990,
+    "knallpris": 10990,
+    "varianter": [
+      {"kode": "QE75QN80HAUXXH", "url": ""},
+      {"kode": "TQ75QN82HBUXNA", "url": ""},
+      {"kode": "TQ75QN84HBUXNA", "url": ""}
+    ]
   }
 ]

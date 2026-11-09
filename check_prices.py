@@ -1,25 +1,31 @@
 #!/usr/bin/env python3
 """Prisvarsler for TV-er (og alt annet med en produktside) – laget for Black Friday.
 
-Ønskelista ligger i data/tv_watchlist.json. Hver vare har en URL (helst en
-Prisjakt-produktside, som viser laveste pris på tvers av butikker, men en
-produktside hos Elkjøp, Power, Komplett o.l. fungerer også) og en målpris.
+Ønskelista ligger i data/tv_watchlist.json. Hver modell har to prisgrenser
+(«god pris» og «knallpris») og én eller flere varianter – Samsung selger samme
+TV under flere modellkoder (TQ…, QE…, TU…, UE…), og Prisjakt har én side per
+kode. Hver variant har en URL: helst en Prisjakt-produktside, som viser laveste
+pris på tvers av butikker, men en produktside hos Elkjøp, Power, Komplett o.l.
+fungerer også. Varianter uten URL hoppes over.
 
 Prisen leses fra de strukturerte dataene nettbutikker legger i siden for
 Google & co. (schema.org JSON-LD, evt. <meta property="product:price:amount">).
 Det er samme data for alle butikker, så vi trenger ingen butikkspesifikk parser.
 
+Hver pris som leses, føres i data/tv_price_log.csv (prishistorikk).
+
 Det varsles via ntfy (samme topic som vin- og billettvarslene) når:
-  • prisen når målprisen eller lavere (én gang – deretter bare hvis den faller
-    videre, eller hvis den har vært over målprisen igjen i mellomtiden),
-  • prisen faller minst MIN_DROP_PCT prosent siden forrige kjøring,
-  • prisen er den laveste vi har sett for varen (og har falt merkbart).
+  • prisen når «knallpris» (prioritet urgent) eller «god pris» (prioritet high).
+    Én gang per nivå – deretter bare hvis prisen faller videre, går opp et
+    nivå, eller har vært over grensen igjen i mellomtiden,
+  • prisen faller minst MIN_DROP_PCT prosent siden forrige kjøring.
 
 Miljøvariabler:
   NTFY_TOPIC     ntfy-topic det varsles til.
   MIN_DROP_PCT   Minste prisfall (i prosent) som gir varsel. Default 3.
   DUMP_HTML      "1" for å skrive starten av hentet HTML i loggen (feilsøking).
 """
+import csv
 import html
 import json
 import os
@@ -37,6 +43,8 @@ DUMP_HTML    = os.environ.get("DUMP_HTML", "") == "1"
 
 WATCHLIST_FILE = "data/tv_watchlist.json"
 STATE_FILE     = "data/tv_prices_state.json"
+LOG_FILE       = "data/tv_price_log.csv"
+LOG_HEADER     = ["tidspunkt", "modell", "kode", "pris", "niva", "url"]
 
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
@@ -173,7 +181,7 @@ def extract_price(page):
             return min(metas), "meta"
     return None, None
 
-# ─── Tilstand ─────────────────────────────────────────────────────────────────
+# ─── Tilstand og logg ─────────────────────────────────────────────────────────
 
 def load_json(path, default):
     try:
@@ -188,41 +196,80 @@ def save_state(state):
         json.dump(state, f, ensure_ascii=False, indent=2, sort_keys=True)
         f.write("\n")
 
+def append_log(rows, path=LOG_FILE):
+    """Legger leste priser til i CSV-loggen (lages med overskrift første gang)."""
+    if not rows:
+        return
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    new_file = not os.path.exists(path) or os.path.getsize(path) == 0
+    with open(path, "a", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        if new_file:
+            w.writerow(LOG_HEADER)
+        w.writerows(rows)
+
+def variants(watchlist):
+    """Flater ut ønskelista til (modell, variant)-par. Hopper over tomme URL-er."""
+    for model in watchlist:
+        for v in model.get("varianter", []):
+            if v.get("url", "").strip():
+                yield model, v
+
 # ─── Beslutning ───────────────────────────────────────────────────────────────
+
+LEVELS = {None: 0, "god": 1, "knall": 2}
+LEVEL_TEXT = {"god": "✅ God pris", "knall": "🔥 KNALLPRIS"}
+LEVEL_PRIORITY = {"god": "high", "knall": "urgent"}
 
 def kr(n):
     return f"{int(round(n)):,}".replace(",", " ") + " kr"
 
-def evaluate(item, price, prev, min_drop_pct=MIN_DROP_PCT):
+def level_for(model, price):
+    knall = to_number(model.get("knallpris"))
+    god   = to_number(model.get("god_pris"))
+    if knall and price <= knall:
+        return "knall"
+    if god and price <= god:
+        return "god"
+    return None
+
+def evaluate(model, variant, price, prev, min_drop_pct=MIN_DROP_PCT):
     """Avgjør om det skal varsles. Ren funksjon, så den kan testes.
 
     Returnerer (varsel eller None, ny tilstand). Varselet er (tittel, tekst,
     prioritet).
     """
-    name   = item["navn"]
-    target = to_number(item.get("malpris"))
     prev   = prev or {}
     last   = prev.get("pris")
     lowest = prev.get("laveste")
-    notified_at = prev.get("varslet_malpris")  # prisen vi sist varslet målpris på
+    level  = level_for(model, price)
+    notified_level = prev.get("varslet_niva")
+    notified_price = prev.get("varslet_pris")
 
     new = {
-        "navn": name,
+        "modell": model["modell"],
+        "kode": variant.get("kode", ""),
         "pris": price,
         "laveste": min(price, lowest) if lowest else price,
-        "varslet_malpris": notified_at,
+        "niva": level,
+        "varslet_niva": notified_level,
+        "varslet_pris": notified_price,
     }
 
     reasons = []
     priority = "default"
 
-    if target and price <= target:
-        if notified_at is None or price < notified_at:
-            reasons.append(f"🎯 Under målprisen din på {kr(target)}!")
-            priority = "high"
-            new["varslet_malpris"] = price
-    elif target and price > target:
-        new["varslet_malpris"] = None   # klar til å varsle igjen neste gang
+    if level:
+        if (LEVELS[level] > LEVELS[notified_level]
+                or notified_price is None or price < notified_price):
+            reasons.append(f"{LEVEL_TEXT[level]}!")
+            priority = LEVEL_PRIORITY[level]
+            new["varslet_niva"] = level
+            new["varslet_pris"] = price
+    else:
+        # Over grensene igjen: klar til å varsle på nytt neste gang.
+        new["varslet_niva"] = None
+        new["varslet_pris"] = None
 
     if last and price < last:
         drop_pct = (last - price) / last * 100
@@ -234,11 +281,14 @@ def evaluate(item, price, prev, min_drop_pct=MIN_DROP_PCT):
     if not reasons:
         return None, new
 
-    title = f"{name}: {kr(price)}"
+    code = variant.get("kode")
+    title = f"{model['modell']}: {kr(price)}" + (f" ({code})" if code else "")
     lines = reasons + [""]
-    if target:
-        lines.append(f"Målpris: {kr(target)}")
-    lines.append(item["url"])
+    if model.get("god_pris"):
+        lines.append(f"God pris: ≤ {kr(to_number(model['god_pris']))}")
+    if model.get("knallpris"):
+        lines.append(f"Knallpris: ≤ {kr(to_number(model['knallpris']))}")
+    lines.append(variant["url"])
     return (title, "\n".join(lines), priority), new
 
 # ─── Varsling ─────────────────────────────────────────────────────────────────
@@ -262,16 +312,24 @@ def send_notification(title, message, priority="default", click=None):
 
 def main():
     watchlist = load_json(WATCHLIST_FILE, [])
-    if not watchlist:
-        print(f"Ingen varer i {WATCHLIST_FILE}.")
+    for model in watchlist:
+        missing = [v.get("kode", "?") for v in model.get("varianter", [])
+                   if not v.get("url", "").strip()]
+        if missing:
+            print(f"ℹ️  {model['modell']}: mangler URL for {', '.join(missing)} – hoppes over.")
+    todo = list(variants(watchlist))
+    if not todo:
+        print(f"Ingen varer med URL i {WATCHLIST_FILE}.")
         return 0
+
     state = load_json(STATE_FILE, {})
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    log_rows = []
     read_ok = 0
 
-    for i, item in enumerate(watchlist):
-        url = item["url"]
-        print(f"🔎 {item['navn']}")
+    for i, (model, variant) in enumerate(todo):
+        url = variant["url"].strip()
+        print(f"🔎 {model['modell']} – {variant.get('kode', url)}")
         if i:
             time.sleep(DELAY_SECONDS)
         try:
@@ -293,32 +351,35 @@ def main():
 
         price, source = extract_price(page)
         if price is None:
-            print("    ❓ Fant ingen pris på siden – logges, ingen varsel.")
+            print("    ❓ Fant ingen pris på siden – ingen varsel.")
             continue
 
         read_ok += 1
         prev = state.get(url)
         if prev and prev.get("pris") and price < prev["pris"] * SUSPICIOUS_RATIO:
             # Et fall på over 60 % er nesten alltid feil vare/feil tall, ikke
-            # Black Friday. Logg det og behold forrige tilstand.
+            # Black Friday. Behold forrige tilstand og ikke logg tallet.
             print(f"    🤨 {kr(price)} er mistenkelig lavt mot {kr(prev['pris'])} – ignoreres.")
             continue
         print(f"    💰 {kr(price)} ({source})"
               + (f" – forrige: {kr(prev['pris'])}" if prev and prev.get("pris") else ""))
-        alert, new = evaluate(item, price, prev)
+        alert, new = evaluate(model, variant, price, prev)
         new["sist_sjekket"] = now
         state[url] = new
+        log_rows.append([now, model["modell"], variant.get("kode", ""),
+                         int(round(price)), new["niva"] or "", url])
         if alert:
             title, message, priority = alert
             send_notification(title, message, priority, click=url)
 
     # Fjern tilstand for varer som er tatt ut av ønskelista.
-    urls = {it["url"] for it in watchlist}
+    urls = {v["url"].strip() for _, v in todo}
     for url in [u for u in state if u not in urls]:
         del state[url]
 
     save_state(state)
-    print(f"\nLeste pris for {read_ok} av {len(watchlist)} varer.")
+    append_log(log_rows)
+    print(f"\nLeste pris for {read_ok} av {len(todo)} varianter.")
     # Klarer vi ikke lese en eneste pris, er noe galt – feil kjøringen så
     # workflowen sender et «varsleren feilet»-varsel i stedet for å tie.
     return 0 if read_ok else 1

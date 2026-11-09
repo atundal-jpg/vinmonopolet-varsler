@@ -44,7 +44,7 @@ jobs:
           DUMP_HTML: ${{ inputs.dump_html && '1' || '' }}
         run: python check_prices.py
 
-      - name: Lagre tilstand (tv_prices_state.json) tilbake til repo
+      - name: Lagre tilstand og prislogg tilbake til repo
         if: always()
         run: |
           [ -f data/tv_prices_state.json ] || exit 0
@@ -53,17 +53,31 @@ jobs:
 
           # Samme mønster som de andre varslerne: bygg commiten rett oppå
           # nyeste main, og prøv på nytt hvis en parallell kjøring rakk å
-          # pushe i mellomtiden.
+          # pushe i mellomtiden. Prisloggen vokser bare i bunnen, så vi tar
+          # vare på de nye radene og legger dem oppå nyeste main – da kan ikke
+          # en parallell kjøring viske ut historikk.
           cp data/tv_prices_state.json /tmp/tv_prices_state.json.new
+          git diff --no-color -U0 HEAD -- data/tv_price_log.csv | grep '^+[^+]' | cut -c2- > /tmp/new_log_rows.csv || true
+          if ! git ls-files --error-unmatch data/tv_price_log.csv >/dev/null 2>&1 && [ -f data/tv_price_log.csv ]; then
+            cp data/tv_price_log.csv /tmp/new_log_rows.csv   # første gang: hele fila
+          fi
 
           success=false
           for attempt in 1 2 3 4 5; do
             git fetch origin main
             git reset --hard origin/main
             cp /tmp/tv_prices_state.json.new data/tv_prices_state.json
+            if [ -s /tmp/new_log_rows.csv ]; then
+              if [ -s data/tv_price_log.csv ]; then
+                grep -v '^tidspunkt,' /tmp/new_log_rows.csv >> data/tv_price_log.csv || true
+              else
+                cp /tmp/new_log_rows.csv data/tv_price_log.csv
+              fi
+            fi
             git add data/tv_prices_state.json
+            if [ -f data/tv_price_log.csv ]; then git add data/tv_price_log.csv; fi
             if git diff --staged --quiet; then
-              echo "Ingen endringer i tv_prices_state.json å lagre."
+              echo "Ingen endringer å lagre."
               success=true
               break
             fi
@@ -77,7 +91,7 @@ jobs:
           done
 
           if [ "$success" != true ]; then
-            echo "::error::Klarte ikke å pushe tv_prices_state.json etter 5 forsøk."
+            echo "::error::Klarte ikke å pushe TV-prisene etter 5 forsøk."
             exit 1
           fi
 
