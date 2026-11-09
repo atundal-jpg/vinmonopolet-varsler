@@ -1,0 +1,100 @@
+name: Prisvarsler (TV)
+
+on:
+  schedule:
+    # Hver time fra 06 til 23 norsk tid (UTC-tid i cron; 05–22 UTC om vinteren).
+    # Ikke på hel time – da er GitHubs kø lengst. Tre sider i timen er
+    # beskjeden trafikk for Prisjakt.
+    - cron: "17 5-22 * * *"
+  workflow_dispatch:
+    inputs:
+      dump_html:
+        description: "Skriv starten av sideinnholdet i loggen (feilsøking)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: prisvarsler
+  cancel-in-progress: false
+
+jobs:
+  sjekk-priser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Hent kode
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Sett opp Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sjekk priser og send varsler
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          # Minste prisfall i prosent som gir varsel. Kan overstyres med en
+          # repository variable (Settings → Secrets and variables → Variables).
+          MIN_DROP_PCT: ${{ vars.MIN_DROP_PCT || '3' }}
+          DUMP_HTML: ${{ inputs.dump_html && '1' || '' }}
+        run: python check_prices.py
+
+      - name: Lagre tilstand (tv_prices_state.json) tilbake til repo
+        if: always()
+        run: |
+          [ -f data/tv_prices_state.json ] || exit 0
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Samme mønster som de andre varslerne: bygg commiten rett oppå
+          # nyeste main, og prøv på nytt hvis en parallell kjøring rakk å
+          # pushe i mellomtiden.
+          cp data/tv_prices_state.json /tmp/tv_prices_state.json.new
+
+          success=false
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/tv_prices_state.json.new data/tv_prices_state.json
+            git add data/tv_prices_state.json
+            if git diff --staged --quiet; then
+              echo "Ingen endringer i tv_prices_state.json å lagre."
+              success=true
+              break
+            fi
+            git commit -m "chore: oppdater TV-priser [skip ci]"
+            if git push origin HEAD:main; then
+              success=true
+              break
+            fi
+            echo "Push feilet (forsøk $attempt/5), prøver på nytt..."
+            sleep $((attempt * 2))
+          done
+
+          if [ "$success" != true ]; then
+            echo "::error::Klarte ikke å pushe tv_prices_state.json etter 5 forsøk."
+            exit 1
+          fi
+
+      - name: Varsle hvis kjøringen feilet
+        if: failure()
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then
+            echo "NTFY_TOPIC ikke satt – kan ikke varsle om feilen."
+            exit 0
+          fi
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          curl -sS -X POST "https://ntfy.sh/$NTFY_TOPIC" \
+            -H "Title: Prisvarsleren feilet" \
+            -H "Priority: high" \
+            -H "Tags: warning" \
+            -d "Klarte ikke å lese en eneste TV-pris. Sjekk loggen:
+
+          $RUN_URL" || true
