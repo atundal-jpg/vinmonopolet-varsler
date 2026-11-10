@@ -9,17 +9,20 @@ time.
 
 | TV | God pris | Knallpris | Butikker (hvert 5. min) | Prisjakt (hver time) |
 | --- | --- | --- | --- | --- |
-| QN70F 75" | ≤ 10 990 | ≤ 9 990 | Komplett, NetOnNet, Elkjøp¹ | TQ75QN70F, QE75QN70F² |
-| M80H 75" | ≤ 10 990 | ≤ 9 990 | Elkjøp, Power, Komplett, Elon | TU75M80HAUXXC |
-| QN80F 75" | ≤ 12 990 | ≤ 11 990 | NetOnNet, Elkjøp | TQ75QN80F, QE75QN80F² |
-| QN80H 75" (QN82H/QN84H) | ≤ 11 990 | ≤ 10 990 | Elkjøp (QN84H)³, Samsung.no (QN82H) | – |
+| QN70F 75" | ≤ 10 990 | ≤ 9 990 | Komplett¹, NetOnNet | TQ75QN70F, QE75QN70F² |
+| M80H 75" | ≤ 10 990 | ≤ 9 990 | Power, Komplett, Elon | TU75M80HAUXXC |
+| QN80F 75" | ≤ 12 990 | ≤ 11 990 | NetOnNet | TQ75QN80F, QE75QN80F² |
+| QN80H 75" (QN82H/QN84H) | ≤ 11 990 | ≤ 10 990 | Samsung.no (QN82H) | – ³ |
 
-¹ Elkjøp hadde den ikke tilgjengelig i november, og Komplett har merket den som
-  utgått. Begge følges i tilfelle den kommer tilbake. Loggen viser «🚫 utsolgt
-  eller utgått» så lenge den ikke kan kjøpes.
+¹ Komplett har merket den som utgått, men den følges i tilfelle den kommer
+  tilbake. Loggen viser «🚫 utsolgt eller utgått» så lenge den ikke kan kjøpes.
 ² Importvariant (QE). De nordiske modellene har TQ/TU-koder.
-³ Lenken er satt sammen fra Elkjøps varenummer 1082827 og ikke bekreftet.
-   Står det «fant ingen pris» i loggen, søk på «QN84H» hos Elkjøp og bytt lenken.
+³ QN84H 75" følges ikke noe sted nå: den eneste kilden var Elkjøp. Legg inn
+   Prisjakt-siden for 75"-modellen når du finner den.
+
+**Elkjøp følges bare via Prisjakt.** Elkjøp svarer HTTP 429 («for mange
+forespørsler») på automatiske besøk, allerede på første forespørsel. Det
+respekteres, så Elkjøps egne sider er tatt ut av lista.
 
 Samsung selger samme TV under flere modellkoder (TQ…, QE…, TU…), og Prisjakt
 har én side per kode. Hver side følges for seg, med modellens grenser.
