@@ -38,6 +38,8 @@ Miljøvariabler:
                          utdrag rundt alt som ligner priser (feilsøking).
   URL_FILTER             Feilsøk bare sider der URL-en inneholder denne teksten.
                          Tørrkjøring: lagrer ingenting og sender ingen varsler.
+  TEST_URL               Test én vilkårlig lenke (f.eks. før den legges inn i
+                         ønskelista). Også tørrkjøring.
 """
 import csv
 import html
@@ -56,6 +58,8 @@ NTFY_URL     = "https://ntfy.sh"
 MIN_DROP_PCT = float(os.environ.get("MIN_DROP_PCT", "1") or 1)
 DUMP_HTML    = os.environ.get("DUMP_HTML", "") == "1"
 URL_FILTER   = os.environ.get("URL_FILTER", "").strip().lower()
+TEST_URL     = os.environ.get("TEST_URL", "").strip()
+DRY_RUN      = bool(URL_FILTER or TEST_URL)
 STORE_INTERVAL_MIN    = float(os.environ.get("STORE_INTERVAL_MIN", "5") or 5)
 PRISJAKT_INTERVAL_MIN = float(os.environ.get("PRISJAKT_INTERVAL_MIN", "60") or 60)
 MAX_MINUTES           = float(os.environ.get("MAX_MINUTES", "0") or 0)
@@ -529,7 +533,7 @@ def check_one(model, variant, state, log_rows, now):
     log_rows.append([stamp, model["modell"], variant.get("kode", ""), shop,
                      int(round(price)), new["niva"] or "", url])
     if alert:
-        if URL_FILTER:
+        if DRY_RUN:
             print(f"    🔧 Ville varslet: {alert['tittel']}")
             return True
         send_notification(alert["tittel"], alert["tekst"], alert["prioritet"],
@@ -544,7 +548,11 @@ def main():
         if missing:
             print(f"ℹ️  {model['modell']}: mangler URL for {', '.join(missing)} – hoppes over.")
     todo = list(variants(watchlist))
-    if URL_FILTER:
+    if TEST_URL:
+        todo = [({"modell": "Test"}, {"kode": "", "url": clean_url(TEST_URL)})]
+        print(f"🔧 Tester én lenke: {todo[0][1]['url']}. "
+              "Ingenting lagres, ingen varsler sendes.")
+    elif URL_FILTER:
         todo = [(m, v) for m, v in todo if URL_FILTER in v["url"].lower()]
         print(f"🔧 Feilsøking: bare sider med «{URL_FILTER}» ({len(todo)} stk). "
               "Ingenting lagres, ingen varsler sendes.")
@@ -574,7 +582,7 @@ def main():
             read_ok += check_one(model, variant, state, log_rows,
                                  datetime.now(timezone.utc))
         # Lagre etter hver runde, så et avbrudd ikke koster historikk.
-        if not URL_FILTER:
+        if not DRY_RUN:
             save_state(state)
             append_log(log_rows)
         log_rows = []
@@ -598,7 +606,7 @@ def main():
     urls = {v["url"] for _, v in todo}
     for url in [u for u in state if u not in urls]:
         del state[url]
-    if not URL_FILTER:
+    if not DRY_RUN:
         save_state(state)
 
     print(f"\nLeste pris i {read_ok} av {tried} forsøk.")
