@@ -34,7 +34,10 @@ Miljøvariabler:
   STORE_INTERVAL_MIN     Minutter mellom sjekk av en butikkside. Default 5.
   PRISJAKT_INTERVAL_MIN  Minutter mellom sjekk av en Prisjakt-side. Default 60.
   MAX_MINUTES            Hvor lenge én kjøring looper. Default 0 = én runde.
-  DUMP_HTML              "1" for å skrive starten av hentet HTML i loggen.
+  DUMP_HTML              "1" for å skrive starten av hentet HTML i loggen, og
+                         utdrag rundt alt som ligner priser (feilsøking).
+  URL_FILTER             Feilsøk bare sider der URL-en inneholder denne teksten.
+                         Tørrkjøring: lagrer ingenting og sender ingen varsler.
 """
 import csv
 import html
@@ -52,6 +55,7 @@ NTFY_TOPIC   = os.environ.get("NTFY_TOPIC", "")
 NTFY_URL     = "https://ntfy.sh"
 MIN_DROP_PCT = float(os.environ.get("MIN_DROP_PCT", "1") or 1)
 DUMP_HTML    = os.environ.get("DUMP_HTML", "") == "1"
+URL_FILTER   = os.environ.get("URL_FILTER", "").strip().lower()
 STORE_INTERVAL_MIN    = float(os.environ.get("STORE_INTERVAL_MIN", "5") or 5)
 PRISJAKT_INTERVAL_MIN = float(os.environ.get("PRISJAKT_INTERVAL_MIN", "60") or 60)
 MAX_MINUTES           = float(os.environ.get("MAX_MINUTES", "0") or 0)
@@ -432,6 +436,36 @@ def send_notification(title, message, priority="default", click=None,
     except Exception as e:
         print(f"    ⚠️  Varsel feilet: {e}")
 
+# ─── Feilsøking ───────────────────────────────────────────────────────────────
+
+PRICE_HINT_RE = re.compile(r"(?i)price|pris|amount|\bkr\b|nok")
+
+def dump_page(page, max_hints=40):
+    """Skriver ut det vi trenger for å lære en ny sidestruktur: starten av
+    siden, alle <script>-blokker med type/id/størrelse, og korte utdrag rundt
+    ord som ligner priser."""
+    print(f"    ── {len(page)} tegn ──")
+    print(page[:1500])
+    print("    ── script-blokker ──")
+    for m in re.finditer(r"<script\b([^>]*)>(.*?)</script>", page, re.I | re.S):
+        attrs = re.sub(r"\s+", " ", m.group(1)).strip()[:120]
+        body = m.group(2).strip()
+        if body:
+            start = re.sub(r"\s+", " ", body[:100])
+            print(f"    <script {attrs}> {len(body)} tegn: {start}")
+    print("    ── prisutdrag ──")
+    seen = set()
+    for m in PRICE_HINT_RE.finditer(page):
+        a, b = max(0, m.start() - 90), min(len(page), m.end() + 90)
+        snippet = re.sub(r"\s+", " ", page[a:b])
+        key = snippet[60:140]
+        if key in seen:
+            continue
+        seen.add(key)
+        print(f"    …{snippet}…")
+        if len(seen) >= max_hints:
+            break
+
 # ─── Hovedløp ─────────────────────────────────────────────────────────────────
 
 def check_one(model, variant, state, log_rows, now):
@@ -456,7 +490,7 @@ def check_one(model, variant, state, log_rows, now):
         return False
 
     if DUMP_HTML:
-        print(page[:3000])
+        dump_page(page)
     if looks_blocked(page):
         print(f"🚧 {label}: fikk en sperreside (captcha/bot-sjekk).")
         return False
@@ -480,6 +514,9 @@ def check_one(model, variant, state, log_rows, now):
     log_rows.append([stamp, model["modell"], variant.get("kode", ""), shop,
                      int(round(price)), new["niva"] or "", url])
     if alert:
+        if URL_FILTER:
+            print(f"    🔧 Ville varslet: {alert['tittel']}")
+            return True
         send_notification(alert["tittel"], alert["tekst"], alert["prioritet"],
                           click=url, tags=alert["tags"], shop=alert["butikk"])
     return True
@@ -492,6 +529,10 @@ def main():
         if missing:
             print(f"ℹ️  {model['modell']}: mangler URL for {', '.join(missing)} – hoppes over.")
     todo = list(variants(watchlist))
+    if URL_FILTER:
+        todo = [(m, v) for m, v in todo if URL_FILTER in v["url"].lower()]
+        print(f"🔧 Feilsøking: bare sider med «{URL_FILTER}» ({len(todo)} stk). "
+              "Ingenting lagres, ingen varsler sendes.")
     if not todo:
         print(f"Ingen varer med URL i {WATCHLIST_FILE}.")
         return 0
@@ -518,8 +559,9 @@ def main():
             read_ok += check_one(model, variant, state, log_rows,
                                  datetime.now(timezone.utc))
         # Lagre etter hver runde, så et avbrudd ikke koster historikk.
-        save_state(state)
-        append_log(log_rows)
+        if not URL_FILTER:
+            save_state(state)
+            append_log(log_rows)
         log_rows = []
 
         if MAX_MINUTES <= 0:
@@ -541,7 +583,8 @@ def main():
     urls = {v["url"] for _, v in todo}
     for url in [u for u in state if u not in urls]:
         del state[url]
-    save_state(state)
+    if not URL_FILTER:
+        save_state(state)
 
     print(f"\nLeste pris i {read_ok} av {tried} forsøk.")
     # Klarer vi ikke lese en eneste pris, er noe galt – feil kjøringen så

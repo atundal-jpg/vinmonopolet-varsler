@@ -15,9 +15,15 @@ on:
         description: "Skriv starten av sideinnholdet i loggen (feilsøking)"
         type: boolean
         default: false
+      kun:
+        description: "Feilsøk bare sider som inneholder denne teksten (f.eks. komplett). Lagrer ingenting og varsler ikke."
+        type: string
+        default: ""
 
 concurrency:
-  group: prisvarsler
+  # Feilsøkingskjøringer (kun=…) lagrer ingenting, og skal ikke vente bak
+  # den vanlige loopen på 50 minutter.
+  group: prisvarsler${{ inputs.kun && '-feilsok' || '' }}
   cancel-in-progress: false
 
 jobs:
@@ -48,12 +54,13 @@ jobs:
           STORE_INTERVAL_MIN: ${{ vars.STORE_INTERVAL_MIN || '5' }}
           PRISJAKT_INTERVAL_MIN: ${{ vars.PRISJAKT_INTERVAL_MIN || '60' }}
           # Én runde ved feilsøking, ellers loop i 50 minutter.
-          MAX_MINUTES: ${{ inputs.dump_html && '0' || '50' }}
-          DUMP_HTML: ${{ inputs.dump_html && '1' || '' }}
+          MAX_MINUTES: ${{ (inputs.dump_html || inputs.kun) && '0' || '50' }}
+          DUMP_HTML: ${{ (inputs.dump_html || inputs.kun) && '1' || '' }}
+          URL_FILTER: ${{ inputs.kun }}
         run: python check_prices.py
 
       - name: Lagre tilstand og prislogg tilbake til repo
-        if: always()
+        if: always() && !inputs.kun
         run: |
           [ -f data/tv_prices_state.json ] || exit 0
           git config user.name  "github-actions[bot]"
@@ -104,7 +111,7 @@ jobs:
           fi
 
       - name: Varsle hvis kjøringen feilet
-        if: failure()
+        if: failure() && !inputs.kun
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: |
