@@ -100,15 +100,17 @@ def fetch_page(url):
 
 def looks_blocked(page):
     """En sperreside er kort og mangler produktdata."""
-    if len(page) > 20000 or "application/ld+json" in page:
+    if len(page) > 20000 or re.search(LDJSON_TYPE, page, re.IGNORECASE):
         return False
     low = page.lower()
     return any(p in low for p in BLOCK_PHRASES)
 
 # ─── Parsing ──────────────────────────────────────────────────────────────────
 
+# «+» kan stå som HTML-kode i attributtet (Komplett skriver application/ld&#x2B;json).
+LDJSON_TYPE = r'application/ld(?:\+|&#x0*2b;|&#0*43;|&plus;)json'
 LDJSON_RE = re.compile(
-    r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+    rf'<script[^>]+type=["\']{LDJSON_TYPE}["\'][^>]*>(.*?)</script>',
     re.IGNORECASE | re.DOTALL)
 META_PRICE_RE = re.compile(
     r'<meta[^>]+(?:property|itemprop|name)=["\'](?:product:price:amount|og:price:amount|price)["\']'
@@ -158,13 +160,16 @@ def _is_type(obj, name):
     t = obj.get("@type")
     return t == name or (isinstance(t, list) and name in t)
 
+UNAVAILABLE = ("outofstock", "discontinued", "soldout", "preorder_unavailable")
+
 def _offer_prices(offers):
+    """Priser fra tilbud som kan kjøpes. Utsolgte/utgåtte tilbud hoppes over."""
     prices = []
     for o in _walk(offers):
         if not isinstance(o, dict):
             continue
         avail = str(o.get("availability", "")).lower()
-        if "outofstock" in avail or "discontinued" in avail:
+        if any(u in avail for u in UNAVAILABLE):
             continue
         for key in ("lowPrice", "price"):
             n = to_number(o.get(key))
@@ -178,22 +183,29 @@ def _offer_prices(offers):
     return prices
 
 def extract_price(page):
-    """Returnerer (pris, kilde) for sidens hovedprodukt, eller (None, None).
+    """Returnerer (pris, kilde) for sidens hovedprodukt.
+
+    Uten pris: (None, "utsolgt") hvis hovedproduktet finnes, men ikke kan
+    kjøpes, ellers (None, None).
 
     Bare det første produktet med tilbud brukes: sider kan også ha
-    strukturdata for tilbehør og «lignende produkter» lenger ned, og de skal
-    ikke kunne gi oss en falsk lavpris.
+    strukturdata for tilbehør og «lignende produkter» lenger ned. Er
+    hovedproduktet utsolgt, skal ikke et av dem gi oss en falsk lavpris.
     """
     for block in LDJSON_RE.findall(page):
         try:
-            data = json.loads(html.unescape(block.strip()))
+            data = json.loads(block.strip())
         except ValueError:
-            continue
+            try:
+                data = json.loads(html.unescape(block.strip()))
+            except ValueError:
+                continue
         for obj in _walk(data):
             if (_is_type(obj, "Product") or _is_type(obj, "ProductGroup")) and "offers" in obj:
                 prices = _offer_prices(obj["offers"])
                 if prices:
                     return min(prices), "json-ld"
+                return None, "utsolgt"
     for rx in (META_PRICE_RE, META_PRICE_RE_REV):
         metas = [n for n in (to_number(m) for m in rx.findall(page)) if n]
         if metas:
@@ -496,6 +508,9 @@ def check_one(model, variant, state, log_rows, now):
         return False
 
     price, source = extract_price(page)
+    if price is None and source == "utsolgt":
+        print(f"🚫 {label}: utsolgt eller utgått hos butikken – ingen pris å følge nå.")
+        return False
     if price is None:
         print(f"❓ {label}: fant ingen pris på siden.")
         return False

@@ -14,7 +14,9 @@ time.
 | QN80F 75" | ≤ 12 990 | ≤ 11 990 | NetOnNet, Elkjøp | TQ75QN80F, QE75QN80F² |
 | QN80H 75" (QN82H/QN84H) | ≤ 11 990 | ≤ 10 990 | Elkjøp (QN84H)³, Samsung.no (QN82H) | – |
 
-¹ Var ikke tilgjengelig i november, men følges i tilfelle den kommer tilbake.
+¹ Elkjøp hadde den ikke tilgjengelig i november, og Komplett har merket den som
+  utgått. Begge følges i tilfelle den kommer tilbake. Loggen viser «🚫 utsolgt
+  eller utgått» så lenge den ikke kan kjøpes.
 ² Importvariant (QE). De nordiske modellene har TQ/TU-koder.
 ³ Lenken er satt sammen fra Elkjøps varenummer 1082827 og ikke bekreftet.
    Står det «fant ingen pris» i loggen, søk på «QN84H» hos Elkjøp og bytt lenken.
@@ -158,7 +160,10 @@ variables → Variables). Tilstand og logg lagres etter hver runde og pushes nå
 kjøringen er ferdig.
 
 Workflowen kan også startes manuelt. Med *Dump html* gjør den én runde og
-skriver starten av hver side ut i loggen.
+skriver ut starten av hver side, alle `<script>`-blokker og utdrag rundt
+prislignende ord. Med feltet *kun* (f.eks. `komplett`) hentes bare sidene med
+den teksten i lenken. Det er en tørrkjøring: ingenting lagres, ingen varsler
+sendes, og den venter ikke bak den vanlige loopen.
 
 Det blir 12 forespørsler i timen per butikkside, spredt over flere butikker.
 Viser loggen mange «🚧 kom ikke inn», skal intervallet opp.
