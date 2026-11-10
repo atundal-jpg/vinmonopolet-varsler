@@ -248,7 +248,7 @@ PRICE_MATCH_TIPS = {
 
 # Sporingsparametre som ikke endrer hvilken vare siden viser.
 TRACKING_PARAMS = re.compile(
-    r"^(utm_.*|gclid|gclsrc|gbraid|wbraid|fbclid|msclkid|dclid|_ga|mc_.*|"
+    r"^(utm_.*|gclid|gclsrc|gbraid|wbraid|fbclid|msclkid|dclid|_ga|_gl|mc_.*|"
     r"ref|referrer|affiliate.*|aff_.*|pj_.*|clickid|cid|srsltid)$", re.IGNORECASE)
 
 def clean_url(url):

@@ -9,8 +9,8 @@ time.
 
 | TV | God pris | Knallpris | Butikker (hvert 5. min) | Prisjakt (hver time) |
 | --- | --- | --- | --- | --- |
-| QN70F 75" | ≤ 10 990 | ≤ 9 990 | Komplett, NetOnNet, Elon, Elkjøp¹ | TQ75QN70F, QE75QN70F² |
-| M80H 75" | ≤ 10 990 | ≤ 9 990 | Elkjøp, Power, Komplett | TU75M80HAUXXC |
+| QN70F 75" | ≤ 10 990 | ≤ 9 990 | Komplett, NetOnNet, Elkjøp¹ | TQ75QN70F, QE75QN70F² |
+| M80H 75" | ≤ 10 990 | ≤ 9 990 | Elkjøp, Power, Komplett, Elon | TU75M80HAUXXC |
 | QN80F 75" | ≤ 12 990 | ≤ 11 990 | NetOnNet, Elkjøp | TQ75QN80F, QE75QN80F² |
 | QN80H 75" (QN82H/QN84H) | ≤ 11 990 | ≤ 10 990 | Elkjøp (QN84H)³, Samsung.no (QN82H) | – |
 

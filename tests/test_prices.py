@@ -140,6 +140,9 @@ from datetime import datetime, timedelta, timezone  # noqa: E402
 check("sporingsparametre fjernes",
       cp.clean_url("https://www.power.no/tv/p-123/?utm_source=prisjakt&gclid=x&color=sort#anm"),
       "https://www.power.no/tv/p-123/?color=sort")
+check("Google-sporing (_gl, gbraid) fjernes",
+      cp.clean_url("https://www.elon.no/samsung-75-tu75m80hauxxc-154672?_gl=1*abc&gclid=x&gbraid=y"),
+      "https://www.elon.no/samsung-75-tu75m80hauxxc-154672")
 check("Prisjakt-produktside er ikke viderekobling",
       cp.is_prisjakt_redirect("https://www.prisjakt.no/product.php?p=14816418"), False)
 check("Prisjakt «til butikken» er viderekobling",
