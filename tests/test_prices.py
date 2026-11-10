@@ -43,6 +43,22 @@ WITH_ACCESSORY = PRISJAKT_LIKE + """<script type="application/ld+json">{"@type":
 "name":"Veggfeste","offers":{"@type":"Offer","price":605}}</script>"""
 check("tilbehør lenger ned ignoreres", cp.extract_price(WITH_ACCESSORY), (22990.0, "json-ld"))
 
+# Slik Komplett faktisk skriver det (fra Actions-loggen 10. nov 2026): «+» som
+# HTML-kode, og en egen OnlineStore-blokk først.
+KOMPLETT_LIKE = """<script type="application/ld+json">{"@context":"https://schema.org",
+"@type":"OnlineStore","name":"Komplett.no"}</script>
+<script type="application/ld&#x2B;json" id="product-schema-main">{"@context":"https://schema.org/",
+"@type":"Product","name":"Samsung 75\\" M80H","offers":{"@type":"Offer",
+"url":"https://www.komplett.no/product/1336813","priceCurrency":"NOK","price":"14990.00",
+"availability":"http://schema.org/InStock"}}</script>"""
+check("Komplett: ld&#x2B;json leses", cp.extract_price(KOMPLETT_LIKE), (14990.0, "json-ld"))
+
+KOMPLETT_GONE = KOMPLETT_LIKE.replace('"price":"14990.00"', '"price":"0.00"').replace(
+    "InStock", "Discontinued") + """<script type="application/ld+json">{"@type":"Product",
+"name":"Veggfeste","offers":{"@type":"Offer","price":605}}</script>"""
+check("utgått hovedprodukt: «utsolgt», ikke tilbehørets pris",
+      cp.extract_price(KOMPLETT_GONE), (None, "utsolgt"))
+
 META_ONLY = '<meta property="product:price:amount" content="21 490,00">'
 check("meta-fallback", cp.extract_price(META_ONLY), (21490.0, "meta"))
 check("ingen pris", cp.extract_price("<html>hei</html>"), (None, None))
@@ -140,6 +156,9 @@ from datetime import datetime, timedelta, timezone  # noqa: E402
 check("sporingsparametre fjernes",
       cp.clean_url("https://www.power.no/tv/p-123/?utm_source=prisjakt&gclid=x&color=sort#anm"),
       "https://www.power.no/tv/p-123/?color=sort")
+check("Google-sporing (_gl, gbraid) fjernes",
+      cp.clean_url("https://www.elon.no/samsung-75-tu75m80hauxxc-154672?_gl=1*abc&gclid=x&gbraid=y"),
+      "https://www.elon.no/samsung-75-tu75m80hauxxc-154672")
 check("Prisjakt-produktside er ikke viderekobling",
       cp.is_prisjakt_redirect("https://www.prisjakt.no/product.php?p=14816418"), False)
 check("Prisjakt «til butikken» er viderekobling",

@@ -34,7 +34,10 @@ Miljøvariabler:
   STORE_INTERVAL_MIN     Minutter mellom sjekk av en butikkside. Default 5.
   PRISJAKT_INTERVAL_MIN  Minutter mellom sjekk av en Prisjakt-side. Default 60.
   MAX_MINUTES            Hvor lenge én kjøring looper. Default 0 = én runde.
-  DUMP_HTML              "1" for å skrive starten av hentet HTML i loggen.
+  DUMP_HTML              "1" for å skrive starten av hentet HTML i loggen, og
+                         utdrag rundt alt som ligner priser (feilsøking).
+  URL_FILTER             Feilsøk bare sider der URL-en inneholder denne teksten.
+                         Tørrkjøring: lagrer ingenting og sender ingen varsler.
 """
 import csv
 import html
@@ -52,6 +55,7 @@ NTFY_TOPIC   = os.environ.get("NTFY_TOPIC", "")
 NTFY_URL     = "https://ntfy.sh"
 MIN_DROP_PCT = float(os.environ.get("MIN_DROP_PCT", "1") or 1)
 DUMP_HTML    = os.environ.get("DUMP_HTML", "") == "1"
+URL_FILTER   = os.environ.get("URL_FILTER", "").strip().lower()
 STORE_INTERVAL_MIN    = float(os.environ.get("STORE_INTERVAL_MIN", "5") or 5)
 PRISJAKT_INTERVAL_MIN = float(os.environ.get("PRISJAKT_INTERVAL_MIN", "60") or 60)
 MAX_MINUTES           = float(os.environ.get("MAX_MINUTES", "0") or 0)
@@ -96,15 +100,17 @@ def fetch_page(url):
 
 def looks_blocked(page):
     """En sperreside er kort og mangler produktdata."""
-    if len(page) > 20000 or "application/ld+json" in page:
+    if len(page) > 20000 or re.search(LDJSON_TYPE, page, re.IGNORECASE):
         return False
     low = page.lower()
     return any(p in low for p in BLOCK_PHRASES)
 
 # ─── Parsing ──────────────────────────────────────────────────────────────────
 
+# «+» kan stå som HTML-kode i attributtet (Komplett skriver application/ld&#x2B;json).
+LDJSON_TYPE = r'application/ld(?:\+|&#x0*2b;|&#0*43;|&plus;)json'
 LDJSON_RE = re.compile(
-    r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+    rf'<script[^>]+type=["\']{LDJSON_TYPE}["\'][^>]*>(.*?)</script>',
     re.IGNORECASE | re.DOTALL)
 META_PRICE_RE = re.compile(
     r'<meta[^>]+(?:property|itemprop|name)=["\'](?:product:price:amount|og:price:amount|price)["\']'
@@ -154,13 +160,16 @@ def _is_type(obj, name):
     t = obj.get("@type")
     return t == name or (isinstance(t, list) and name in t)
 
+UNAVAILABLE = ("outofstock", "discontinued", "soldout", "preorder_unavailable")
+
 def _offer_prices(offers):
+    """Priser fra tilbud som kan kjøpes. Utsolgte/utgåtte tilbud hoppes over."""
     prices = []
     for o in _walk(offers):
         if not isinstance(o, dict):
             continue
         avail = str(o.get("availability", "")).lower()
-        if "outofstock" in avail or "discontinued" in avail:
+        if any(u in avail for u in UNAVAILABLE):
             continue
         for key in ("lowPrice", "price"):
             n = to_number(o.get(key))
@@ -174,22 +183,29 @@ def _offer_prices(offers):
     return prices
 
 def extract_price(page):
-    """Returnerer (pris, kilde) for sidens hovedprodukt, eller (None, None).
+    """Returnerer (pris, kilde) for sidens hovedprodukt.
+
+    Uten pris: (None, "utsolgt") hvis hovedproduktet finnes, men ikke kan
+    kjøpes, ellers (None, None).
 
     Bare det første produktet med tilbud brukes: sider kan også ha
-    strukturdata for tilbehør og «lignende produkter» lenger ned, og de skal
-    ikke kunne gi oss en falsk lavpris.
+    strukturdata for tilbehør og «lignende produkter» lenger ned. Er
+    hovedproduktet utsolgt, skal ikke et av dem gi oss en falsk lavpris.
     """
     for block in LDJSON_RE.findall(page):
         try:
-            data = json.loads(html.unescape(block.strip()))
+            data = json.loads(block.strip())
         except ValueError:
-            continue
+            try:
+                data = json.loads(html.unescape(block.strip()))
+            except ValueError:
+                continue
         for obj in _walk(data):
             if (_is_type(obj, "Product") or _is_type(obj, "ProductGroup")) and "offers" in obj:
                 prices = _offer_prices(obj["offers"])
                 if prices:
                     return min(prices), "json-ld"
+                return None, "utsolgt"
     for rx in (META_PRICE_RE, META_PRICE_RE_REV):
         metas = [n for n in (to_number(m) for m in rx.findall(page)) if n]
         if metas:
@@ -248,7 +264,7 @@ PRICE_MATCH_TIPS = {
 
 # Sporingsparametre som ikke endrer hvilken vare siden viser.
 TRACKING_PARAMS = re.compile(
-    r"^(utm_.*|gclid|gclsrc|gbraid|wbraid|fbclid|msclkid|dclid|_ga|mc_.*|"
+    r"^(utm_.*|gclid|gclsrc|gbraid|wbraid|fbclid|msclkid|dclid|_ga|_gl|mc_.*|"
     r"ref|referrer|affiliate.*|aff_.*|pj_.*|clickid|cid|srsltid)$", re.IGNORECASE)
 
 def clean_url(url):
@@ -432,6 +448,36 @@ def send_notification(title, message, priority="default", click=None,
     except Exception as e:
         print(f"    ⚠️  Varsel feilet: {e}")
 
+# ─── Feilsøking ───────────────────────────────────────────────────────────────
+
+PRICE_HINT_RE = re.compile(r"(?i)price|pris|amount|\bkr\b|nok")
+
+def dump_page(page, max_hints=40):
+    """Skriver ut det vi trenger for å lære en ny sidestruktur: starten av
+    siden, alle <script>-blokker med type/id/størrelse, og korte utdrag rundt
+    ord som ligner priser."""
+    print(f"    ── {len(page)} tegn ──")
+    print(page[:1500])
+    print("    ── script-blokker ──")
+    for m in re.finditer(r"<script\b([^>]*)>(.*?)</script>", page, re.I | re.S):
+        attrs = re.sub(r"\s+", " ", m.group(1)).strip()[:120]
+        body = m.group(2).strip()
+        if body:
+            start = re.sub(r"\s+", " ", body[:100])
+            print(f"    <script {attrs}> {len(body)} tegn: {start}")
+    print("    ── prisutdrag ──")
+    seen = set()
+    for m in PRICE_HINT_RE.finditer(page):
+        a, b = max(0, m.start() - 90), min(len(page), m.end() + 90)
+        snippet = re.sub(r"\s+", " ", page[a:b])
+        key = snippet[60:140]
+        if key in seen:
+            continue
+        seen.add(key)
+        print(f"    …{snippet}…")
+        if len(seen) >= max_hints:
+            break
+
 # ─── Hovedløp ─────────────────────────────────────────────────────────────────
 
 def check_one(model, variant, state, log_rows, now):
@@ -456,12 +502,15 @@ def check_one(model, variant, state, log_rows, now):
         return False
 
     if DUMP_HTML:
-        print(page[:3000])
+        dump_page(page)
     if looks_blocked(page):
         print(f"🚧 {label}: fikk en sperreside (captcha/bot-sjekk).")
         return False
 
     price, source = extract_price(page)
+    if price is None and source == "utsolgt":
+        print(f"🚫 {label}: utsolgt eller utgått hos butikken – ingen pris å følge nå.")
+        return False
     if price is None:
         print(f"❓ {label}: fant ingen pris på siden.")
         return False
@@ -480,6 +529,9 @@ def check_one(model, variant, state, log_rows, now):
     log_rows.append([stamp, model["modell"], variant.get("kode", ""), shop,
                      int(round(price)), new["niva"] or "", url])
     if alert:
+        if URL_FILTER:
+            print(f"    🔧 Ville varslet: {alert['tittel']}")
+            return True
         send_notification(alert["tittel"], alert["tekst"], alert["prioritet"],
                           click=url, tags=alert["tags"], shop=alert["butikk"])
     return True
@@ -492,6 +544,10 @@ def main():
         if missing:
             print(f"ℹ️  {model['modell']}: mangler URL for {', '.join(missing)} – hoppes over.")
     todo = list(variants(watchlist))
+    if URL_FILTER:
+        todo = [(m, v) for m, v in todo if URL_FILTER in v["url"].lower()]
+        print(f"🔧 Feilsøking: bare sider med «{URL_FILTER}» ({len(todo)} stk). "
+              "Ingenting lagres, ingen varsler sendes.")
     if not todo:
         print(f"Ingen varer med URL i {WATCHLIST_FILE}.")
         return 0
@@ -518,8 +574,9 @@ def main():
             read_ok += check_one(model, variant, state, log_rows,
                                  datetime.now(timezone.utc))
         # Lagre etter hver runde, så et avbrudd ikke koster historikk.
-        save_state(state)
-        append_log(log_rows)
+        if not URL_FILTER:
+            save_state(state)
+            append_log(log_rows)
         log_rows = []
 
         if MAX_MINUTES <= 0:
@@ -541,7 +598,8 @@ def main():
     urls = {v["url"] for _, v in todo}
     for url in [u for u in state if u not in urls]:
         del state[url]
-    save_state(state)
+    if not URL_FILTER:
+        save_state(state)
 
     print(f"\nLeste pris i {read_ok} av {tried} forsøk.")
     # Klarer vi ikke lese en eneste pris, er noe galt – feil kjøringen så
