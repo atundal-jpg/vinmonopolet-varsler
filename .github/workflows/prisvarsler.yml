@@ -44,7 +44,7 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           # Minste prisfall i prosent som gir varsel. Kan overstyres med en
           # repository variable (Settings → Secrets and variables → Variables).
-          MIN_DROP_PCT: ${{ vars.MIN_DROP_PCT || '3' }}
+          MIN_DROP_PCT: ${{ vars.MIN_DROP_PCT || '1' }}
           STORE_INTERVAL_MIN: ${{ vars.STORE_INTERVAL_MIN || '5' }}
           PRISJAKT_INTERVAL_MIN: ${{ vars.PRISJAKT_INTERVAL_MIN || '60' }}
           # Én runde ved feilsøking, ellers loop i 50 minutter.

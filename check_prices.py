@@ -15,10 +15,12 @@ Det er samme data for alle butikker, så vi trenger ingen butikkspesifikk parser
 Hver pris som leses, føres i data/tv_price_log.csv (prishistorikk).
 
 Det varsles via ntfy (samme topic som vin- og billettvarslene) når:
-  • prisen når «knallpris» (prioritet urgent) eller «god pris» (prioritet high).
-    Én gang per nivå – deretter bare hvis prisen faller videre, går opp et
-    nivå, eller har vært over grensen igjen i mellomtiden,
-  • prisen faller minst MIN_DROP_PCT prosent siden forrige kjøring.
+  • prisen kommer innenfor grensene: et ekstra tydelig varsel – 🔥 KNALLPRIS
+    (prioritet urgent, lyd og vibrasjon som bryter gjennom) eller ✅ GOD PRIS
+    (prioritet high). Én gang per nivå – deretter bare hvis prisen faller
+    videre, går opp et nivå, eller har vært over grensen igjen i mellomtiden,
+  • prisen ellers faller minst MIN_DROP_PCT prosent siden forrige sjekk: et
+    vanlig 📉 prisfall-varsel som viser hvor langt det er igjen til grensene.
 
 Prisjakt oppdaterer selv bare 3–5 ganger i døgnet, så Prisjakt-sider sjekkes
 sjeldnere (PRISJAKT_INTERVAL_MIN) enn butikkenes egne sider
@@ -28,7 +30,7 @@ kjøringer sjeldnere enn vi ber om.
 
 Miljøvariabler:
   NTFY_TOPIC             ntfy-topic det varsles til.
-  MIN_DROP_PCT           Minste prisfall (i prosent) som gir varsel. Default 3.
+  MIN_DROP_PCT           Minste prisfall (i prosent) som gir varsel. Default 1.
   STORE_INTERVAL_MIN     Minutter mellom sjekk av en butikkside. Default 5.
   PRISJAKT_INTERVAL_MIN  Minutter mellom sjekk av en Prisjakt-side. Default 60.
   MAX_MINUTES            Hvor lenge én kjøring looper. Default 0 = én runde.
@@ -48,7 +50,7 @@ from datetime import datetime, timedelta, timezone
 
 NTFY_TOPIC   = os.environ.get("NTFY_TOPIC", "")
 NTFY_URL     = "https://ntfy.sh"
-MIN_DROP_PCT = float(os.environ.get("MIN_DROP_PCT", "3") or 3)
+MIN_DROP_PCT = float(os.environ.get("MIN_DROP_PCT", "1") or 1)
 DUMP_HTML    = os.environ.get("DUMP_HTML", "") == "1"
 STORE_INTERVAL_MIN    = float(os.environ.get("STORE_INTERVAL_MIN", "5") or 5)
 PRISJAKT_INTERVAL_MIN = float(os.environ.get("PRISJAKT_INTERVAL_MIN", "60") or 60)
@@ -306,8 +308,10 @@ def is_due(state_entry, interval_min, now):
 # ─── Beslutning ───────────────────────────────────────────────────────────────
 
 LEVELS = {None: 0, "god": 1, "knall": 2}
-LEVEL_TEXT = {"god": "✅ God pris", "knall": "🔥 KNALLPRIS"}
+LEVEL_TITLE    = {"god": "✅ GOD PRIS", "knall": "🔥 KNALLPRIS"}
 LEVEL_PRIORITY = {"god": "high", "knall": "urgent"}
+LEVEL_TAGS     = {"god": "white_check_mark,tv", "knall": "rotating_light,fire,tv"}
+DROP_TAGS      = "chart_with_downwards_trend,tv"
 
 def kr(n):
     return f"{int(round(n)):,}".replace(",", " ") + " kr"
@@ -324,8 +328,8 @@ def level_for(model, price):
 def evaluate(model, variant, price, prev, min_drop_pct=MIN_DROP_PCT):
     """Avgjør om det skal varsles. Ren funksjon, så den kan testes.
 
-    Returnerer (varsel eller None, ny tilstand). Varselet er (tittel, tekst,
-    prioritet).
+    Returnerer (varsel eller None, ny tilstand). Varselet er en dict med
+    tittel, tekst, prioritet, tags og type («knall», «god» eller «fall»).
     """
     prev   = prev or {}
     last   = prev.get("pris")
@@ -333,6 +337,8 @@ def evaluate(model, variant, price, prev, min_drop_pct=MIN_DROP_PCT):
     level  = level_for(model, price)
     notified_level = prev.get("varslet_niva")
     notified_price = prev.get("varslet_pris")
+    god   = to_number(model.get("god_pris"))
+    knall = to_number(model.get("knallpris"))
 
     new = {
         "modell": model["modell"],
@@ -345,14 +351,11 @@ def evaluate(model, variant, price, prev, min_drop_pct=MIN_DROP_PCT):
         "varslet_pris": notified_price,
     }
 
-    reasons = []
-    priority = "default"
-
+    level_hit = False
     if level:
         if (LEVELS[level] > LEVELS[notified_level]
                 or notified_price is None or price < notified_price):
-            reasons.append(f"{LEVEL_TEXT[level]}!")
-            priority = LEVEL_PRIORITY[level]
+            level_hit = True
             new["varslet_niva"] = level
             new["varslet_pris"] = price
     else:
@@ -360,39 +363,67 @@ def evaluate(model, variant, price, prev, min_drop_pct=MIN_DROP_PCT):
         new["varslet_niva"] = None
         new["varslet_pris"] = None
 
+    drop_line = None
     if last and price < last:
         drop_pct = (last - price) / last * 100
         if drop_pct >= min_drop_pct:
-            reasons.append(f"📉 Ned {kr(last - price)} ({drop_pct:.0f} %) fra {kr(last)}")
-            if lowest and price < lowest:
-                reasons.append(f"🏆 Laveste pris vi har sett (forrige bunn: {kr(lowest)})")
+            drop_line = f"📉 Ned {kr(last - price)} ({drop_pct:.0f} %) fra {kr(last)}"
 
-    if not reasons:
+    if not level_hit and not drop_line:
         return None, new
 
     code = variant.get("kode")
     shop = store_name(variant)
-    title = f"{model['modell']}: {kr(price)} hos {shop}" + (f" ({code})" if code else "")
-    lines = reasons + [""]
-    if model.get("god_pris"):
-        lines.append(f"God pris: ≤ {kr(to_number(model['god_pris']))}")
-    if model.get("knallpris"):
-        lines.append(f"Knallpris: ≤ {kr(to_number(model['knallpris']))}")
+    what = f"{model['modell']}: {kr(price)} hos {shop}"
+    lines = []
+
+    if level_hit:
+        # Det tydelige varselet: grensen står først, både i tittel og tekst.
+        limit = knall if level == "knall" else god
+        title = f"{LEVEL_TITLE[level]} – {what}"
+        lines.append(f"{LEVEL_TITLE[level]}! Innenfor grensen din på {kr(limit)}"
+                     + (f" ({kr(limit - price)} under)." if price < limit else "."))
+        priority, tags, kind = LEVEL_PRIORITY[level], LEVEL_TAGS[level], level
+    else:
+        title = f"📉 Prisfall – {what}"
+        # Hvor langt er det igjen? Gir mening å vite ved et vanlig prisfall.
+        if knall and price > knall and level == "god":
+            lines.append(f"Innenfor god pris – {kr(price - knall)} igjen til knallpris.")
+        elif god and price > god:
+            lines.append(f"{kr(price - god)} igjen til god pris ({kr(god)}).")
+        priority, tags, kind = "default", DROP_TAGS, "fall"
+
+    if drop_line:
+        lines.append(drop_line)
+    if lowest and price < lowest:
+        lines.append(f"🏆 Laveste pris vi har sett (forrige bunn: {kr(lowest)})")
+    if code:
+        lines.append(f"Modell: {code}")
+    lines.append("")
+    if god:
+        lines.append(f"God pris: ≤ {kr(god)}")
+    if knall:
+        lines.append(f"Knallpris: ≤ {kr(knall)}")
     tip = PRICE_MATCH_TIPS.get(shop)
-    if tip and level:
+    if tip and level_hit:
         lines.append(f"💡 {tip} Sjekk vilkårene.")
     lines.append(variant["url"])
-    return (title, "\n".join(lines), priority), new
+    return {"tittel": title, "tekst": "\n".join(lines), "prioritet": priority,
+            "tags": tags, "type": kind, "butikk": shop}, new
 
 # ─── Varsling ─────────────────────────────────────────────────────────────────
 
-def send_notification(title, message, priority="default", click=None):
+def send_notification(title, message, priority="default", click=None,
+                      tags="tv,moneybag", shop=None):
     if not NTFY_TOPIC:
         print(f"    ⚠️  NTFY_TOPIC ikke satt – hopper over: {title}")
         return
-    headers = {"Title": title.encode(), "Priority": priority, "Tags": "tv,moneybag"}
+    headers = {"Title": title.encode(), "Priority": priority, "Tags": tags}
     if click:
         headers["Click"] = click
+        # Knapp rett til butikken i varselet (ntfy skiller felt med komma).
+        if "," not in click:
+            headers["Actions"] = f"view, Åpne hos {shop or 'butikken'}, {click}".encode()
     req = urllib.request.Request(f"{NTFY_URL}/{NTFY_TOPIC}",
                                  data=message.encode(), headers=headers, method="POST")
     try:
@@ -449,8 +480,8 @@ def check_one(model, variant, state, log_rows, now):
     log_rows.append([stamp, model["modell"], variant.get("kode", ""), shop,
                      int(round(price)), new["niva"] or "", url])
     if alert:
-        title, message, priority = alert
-        send_notification(title, message, priority, click=url)
+        send_notification(alert["tittel"], alert["tekst"], alert["prioritet"],
+                          click=url, tags=alert["tags"], shop=alert["butikk"])
     return True
 
 def main():

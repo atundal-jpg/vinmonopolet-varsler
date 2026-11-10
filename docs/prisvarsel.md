@@ -67,11 +67,39 @@ modellkoden på siden stemmer, for eksempel QE75QN70F og ikke QE65QN70F.
 
 ## Når det varsles
 
-- 🔥 **Knallpris** (prioritet *urgent*) og ✅ **God pris** (prioritet *high*).
-  Ett varsel per nivå. Nytt varsel kommer hvis prisen faller videre, går fra
+Det finnes to typer varsel, og de skal være lette å skille fra hverandre:
+
+**1. Innenfor grensene – det tydelige varselet**
+
+```
+🔥 KNALLPRIS – QN70F 75": 9 790 kr hos Komplett
+🔥 KNALLPRIS! Innenfor grensen din på 9 990 kr (200 kr under).
+📉 Ned 1 700 kr (15 %) fra 11 490 kr
+💡 Elkjøp kan matche prisen (prismatch) …
+```
+
+- 🔥 **KNALLPRIS** har prioritet *urgent*, som i ntfy-appen gir lang
+  vibrasjon og lyd og bryter gjennom «Ikke forstyrr» hvis du tillater det.
+- ✅ **GOD PRIS** har prioritet *high*, med vibrasjon og lyd.
+- Grensen står først både i tittelen og i teksten, og varselet har en knapp
+  rett til butikken.
+- Ett varsel per nivå. Nytt varsel kommer hvis prisen faller videre, går fra
   god pris til knallpris, eller har vært over grensen igjen i mellomtiden.
-- 📉 **Prisfall** på minst `MIN_DROP_PCT` prosent (standard 3) siden forrige
-  kjøring, med 🏆 hvis det er den laveste prisen varsleren har sett.
+
+**2. Prisfall – vanlig varsel**
+
+```
+📉 Prisfall – QN70F 75": 11 490 kr hos Komplett
+500 kr igjen til god pris (10 990 kr).
+📉 Ned 500 kr (4 %) fra 11 990 kr
+```
+
+- Normal prioritet, når prisen faller minst `MIN_DROP_PCT` prosent (standard 1)
+  siden forrige sjekk, uten å ha nådd et nytt nivå.
+- Viser hvor langt det er igjen til god pris eller knallpris, og 🏆 hvis det
+  er den laveste prisen varsleren har sett.
+- Blir det for mange, kan terskelen settes opp med repository-variabelen
+  `MIN_DROP_PCT`.
 
 Varselet åpner produktsiden når du trykker på det.
 

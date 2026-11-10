@@ -57,7 +57,7 @@ MODEL = {"modell": "QN70F 75\"", "god_pris": 10990, "knallpris": 9990}
 VAR = {"kode": "QE75QN70F", "url": "https://www.elkjop.no/product/tv/123"}
 
 def ev(price, prev):
-    return cp.evaluate(MODEL, VAR, price, prev, 3)
+    return cp.evaluate(MODEL, VAR, price, prev, 1)
 
 check("nivå over grensene", cp.level_for(MODEL, 11000), None)
 check("nivå god pris (på grensen)", cp.level_for(MODEL, 10990), "god")
@@ -66,29 +66,48 @@ check("nivå knallpris (på grensen)", cp.level_for(MODEL, 9990), "knall")
 alert, st = ev(12176, None)
 check("første kjøring over grensene: ingen varsel", alert, None)
 
-alert, st2 = ev(11990, st)
-check("lite fall (1,5 %): ingen varsel", alert, None)
+alert, st1 = ev(12100, st)
+check("lite fall (0,6 %): ingen varsel", alert, None)
+
+alert, st2 = ev(11490, st1)
+check("prisfall over grensene: vanlig varsel", alert["type"], "fall")
+check("… normal prioritet", alert["prioritet"], "default")
+check("… tittel", alert["tittel"], "📉 Prisfall – QN70F 75\": 11 490 kr hos Elkjøp")
+check("… viser hva som gjenstår", "500 kr igjen til god pris" in alert["tekst"], True)
+check("… ingen prismatch-tips på vanlig fall", "prismatch" in alert["tekst"], False)
 
 alert, st3 = ev(10990, st2)
-check("god pris: prioritet high", alert[2], "high")
-check("… tittel har modell, butikk og kode", alert[0],
-      "QN70F 75\": 10 990 kr hos Elkjøp (QE75QN70F)")
-check("… tekst nevner god pris og fallet", "God pris!" in alert[1] and "Ned" in alert[1], True)
+check("god pris: tydelig varsel", alert["type"], "god")
+check("… prioritet high", alert["prioritet"], "high")
+check("… tittel starter med GOD PRIS", alert["tittel"],
+      "✅ GOD PRIS – QN70F 75\": 10 990 kr hos Elkjøp")
+check("… første linje sier det", alert["tekst"].splitlines()[0],
+      "✅ GOD PRIS! Innenfor grensen din på 10 990 kr.")
+check("… nevner fallet og modellkoden",
+      "Ned 500 kr" in alert["tekst"] and "QE75QN70F" in alert["tekst"], True)
+check("… prismatch-tips for Elkjøp", "Power kan matche" in alert["tekst"], True)
 
 alert, st4 = ev(10990, st3)
 check("samme pris igjen: ingen gjentatt varsel", alert, None)
 
 alert, st5 = ev(9990, st4)
-check("knallpris: prioritet urgent", alert[2], "urgent")
-check("… tekst sier KNALLPRIS", "KNALLPRIS" in alert[1], True)
+check("knallpris: prioritet urgent", alert["prioritet"], "urgent")
+check("… tittel starter med KNALLPRIS", alert["tittel"].startswith("🔥 KNALLPRIS – "), True)
+check("… egne tags", alert["tags"], "rotating_light,fire,tv")
 
 alert, st6 = ev(9790, st5)
-check("faller videre innenfor knallpris: nytt varsel", alert is not None, True)
+check("faller videre innenfor knallpris: nytt knallvarsel", alert["type"], "knall")
+check("… sier hvor langt under grensen", "(200 kr under)" in alert["tekst"], True)
 
 alert, st7 = ev(10490, st6)
 check("stiger fra knall til god: ingen varsel", alert, None)
 
-alert, st8 = ev(11990, st7)
+alert, st7b = ev(10290, st7)
+check("faller innenfor god pris etter å ha vært knall: vanlig fall-varsel",
+      alert["type"], "fall")
+check("… viser avstand til knallpris", "300 kr igjen til knallpris" in alert["tekst"], True)
+
+alert, st8 = ev(11990, st7b)
 check("over grensene igjen: ingen varsel", alert, None)
 alert, _ = ev(10990, st8)
 check("tilbake på god pris etter å ha vært over: varsel igjen", alert is not None, True)
@@ -129,7 +148,7 @@ check("butikk fra domene: Elon", cp.store_name({"url": "https://www.elon.no/x"})
 check("butikk fra domene: NetOnNet", cp.store_name({"url": "https://www.netonnet.no/art/x"}), "NetOnNet")
 check("butikk fra domene: Samsung", cp.store_name({"url": "https://www.samsung.com/no/tvs/x"}), "Samsung")
 alert, _ = cp.evaluate(MODEL, {"kode": "k", "url": "https://www.komplett.no/product/1"}, 9990, None, 3)
-check("prismatch-tips for Komplett", "Elkjøp kan matche" in alert[1], True)
+check("prismatch-tips for Komplett", "Elkjøp kan matche" in alert["tekst"], True)
 check("butikk kan overstyres", cp.store_name({"url": "https://x.no", "butikk": "X"}), "X")
 check("Prisjakt sjekkes sjeldnere",
       cp.interval_for({"url": "https://www.prisjakt.no/product.php?p=1"}) > cp.interval_for(
